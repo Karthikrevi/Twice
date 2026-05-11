@@ -10,6 +10,7 @@ interface LoginResponse {
   user: User;
   accessToken: string;
   refreshToken: string;
+  restaurantName?: string;
 }
 
 const roleHome = (role: User["role"]) => {
@@ -27,19 +28,23 @@ const roleHome = (role: User["role"]) => {
 
 export function useLogin() {
   const setUser = useSession((s) => s.setUser);
+  const setRestaurantName = useSession((s) => s.setRestaurantName);
   return useMutation({
-    mutationFn: async (input: { email: string; password: string }) => {
+    mutationFn: async (input: { email: string; password: string; keepLoggedIn: boolean }) => {
       const { data } = await api.post<LoginResponse>("/auth/login", input);
-      return data;
+      return { ...data, keepLoggedIn: input.keepLoggedIn };
     },
     onSuccess: async (data) => {
       await Promise.all([
         secureStorage.setAccess(data.accessToken),
         secureStorage.setRefresh(data.refreshToken),
         secureStorage.setUser(data.user),
+        secureStorage.setKeepLoggedIn(data.keepLoggedIn),
+        data.restaurantName ? secureStorage.setRestaurantName(data.restaurantName) : Promise.resolve(),
       ]);
       connectSocket(data.accessToken);
       setUser(data.user);
+      if (data.restaurantName) setRestaurantName(data.restaurantName);
       router.replace(roleHome(data.user.role) as any);
     },
   });

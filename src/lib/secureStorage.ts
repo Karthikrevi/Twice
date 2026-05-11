@@ -4,6 +4,8 @@ const ACCESS = "once.access";
 const REFRESH = "once.refresh";
 const USER = "once.user";
 const SETUP_DONE = "once.setup_done";
+const KEEP_LOGGED_IN = "once.keep_logged_in";
+const RESTAURANT_NAME = "once.restaurant_name";
 
 export const secureStorage = {
   async setAccess(token: string) {
@@ -31,11 +33,25 @@ export const secureStorage = {
   async isSetupDone() {
     return (await SecureStore.getItemAsync(SETUP_DONE)) === "1";
   },
+  async setKeepLoggedIn(keep: boolean) {
+    if (keep) await SecureStore.setItemAsync(KEEP_LOGGED_IN, "1");
+    else await SecureStore.deleteItemAsync(KEEP_LOGGED_IN);
+  },
+  async isKeepLoggedIn() {
+    return (await SecureStore.getItemAsync(KEEP_LOGGED_IN)) === "1";
+  },
+  async setRestaurantName(name: string) {
+    await SecureStore.setItemAsync(RESTAURANT_NAME, name);
+  },
+  async getRestaurantName() {
+    return SecureStore.getItemAsync(RESTAURANT_NAME);
+  },
   async clearSession() {
     await Promise.all([
       SecureStore.deleteItemAsync(ACCESS),
       SecureStore.deleteItemAsync(REFRESH),
       SecureStore.deleteItemAsync(USER),
+      SecureStore.deleteItemAsync(KEEP_LOGGED_IN),
     ]);
   },
 };

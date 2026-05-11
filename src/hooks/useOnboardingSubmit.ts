@@ -40,6 +40,8 @@ export function useSubmitOnboarding() {
     },
     onSuccess: async () => {
       await secureStorage.markSetupDone();
+      const name = useOnboarding.getState().restaurantName.trim();
+      if (name) await secureStorage.setRestaurantName(name);
     },
   });
 }

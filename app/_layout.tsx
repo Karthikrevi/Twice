@@ -39,15 +39,24 @@ export default function RootLayout() {
     });
 
     (async () => {
-      const [access, user, setupDone] = await Promise.all([
+      const [access, user, setupDone, keepLoggedIn, restaurantName] = await Promise.all([
         secureStorage.getAccess(),
         secureStorage.getUser<User>(),
         secureStorage.isSetupDone(),
+        secureStorage.isKeepLoggedIn(),
+        secureStorage.getRestaurantName(),
       ]);
       const s = useSession.getState();
       s.setSetupDone(setupDone);
-      if (user) s.setUser(user);
-      if (access && user) connectSocket(access);
+      s.setRestaurantName(restaurantName);
+      if (keepLoggedIn && user) {
+        s.setUser(user);
+        if (access) connectSocket(access);
+      } else if (!keepLoggedIn) {
+        // Don't auto-restore — force a fresh sign-in but preserve setup + restaurant name
+        await secureStorage.clearSession();
+        s.setUser(null);
+      }
       s.setBootstrapped(true);
       setBootstrapped(true);
     })();
