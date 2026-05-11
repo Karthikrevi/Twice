@@ -1,20 +1,24 @@
 import { create } from "zustand";
-import type { Role, User, RestaurantProfile } from "@/types";
+import type { Role, User } from "@/types";
 
 interface SessionState {
   user: User | null;
-  restaurant: RestaurantProfile | null;
+  setupDone: boolean;
+  bootstrapped: boolean;
   setUser: (user: User | null) => void;
-  setRestaurant: (r: RestaurantProfile | null) => void;
+  setSetupDone: (done: boolean) => void;
+  setBootstrapped: (b: boolean) => void;
   signOut: () => void;
   hasRole: (...roles: Role[]) => boolean;
 }
 
 export const useSession = create<SessionState>((set, get) => ({
   user: null,
-  restaurant: null,
+  setupDone: false,
+  bootstrapped: false,
   setUser: (user) => set({ user }),
-  setRestaurant: (restaurant) => set({ restaurant }),
+  setSetupDone: (setupDone) => set({ setupDone }),
+  setBootstrapped: (bootstrapped) => set({ bootstrapped }),
   signOut: () => set({ user: null }),
   hasRole: (...roles) => {
     const u = get().user;

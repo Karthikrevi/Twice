@@ -1,42 +1,28 @@
 import { useState } from "react";
 import { Text, View, KeyboardAvoidingView, Platform } from "react-native";
-import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
-import { useSession } from "@/store/session";
-import type { Role } from "@/types";
+import { useLogin } from "@/hooks/useAuth";
+import axios from "axios";
 
 export default function Login() {
-  const setUser = useSession((s) => s.setUser);
-  const restaurant = useSession((s) => s.restaurant);
-  const [email, setEmail] = useState(restaurant?.ownerEmail ?? "");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | undefined>();
+  const login = useLogin();
 
   const valid = /\S+@\S+\.\S+/.test(email) && password.length >= 6;
 
-  const submit = async () => {
-    setError(undefined);
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 500));
-    const role: Role = email === restaurant?.ownerEmail
-      ? "owner"
-      : email.includes("manager")
-      ? "manager"
-      : email.includes("kitchen")
-      ? "kitchen"
-      : "waiter";
-    setUser({
-      id: Math.random().toString(36).slice(2, 9),
-      name: email.split("@")[0],
-      email,
-      role,
-    });
-    setLoading(false);
-    router.replace(role === "kitchen" ? "/kitchen" : "/(tabs)/orders");
+  const submit = () => {
+    login.reset();
+    login.mutate({ email: email.trim(), password });
   };
+
+  const errorMessage = login.isError
+    ? axios.isAxiosError(login.error) && login.error.response?.status === 401
+      ? "Email or password is incorrect."
+      : "We couldn't sign you in. Try again."
+    : undefined;
 
   return (
     <SafeAreaView className="flex-1 bg-bg" edges={["top", "bottom"]}>
@@ -47,9 +33,7 @@ export default function Login() {
         <View className="mb-10 items-start">
           <Text className="text-amber text-[14px] font-bold tracking-[6px] mb-3">ONCE</Text>
           <Text className="text-text-primary text-[32px] font-bold tracking-tight">Welcome back</Text>
-          <Text className="text-text-secondary text-[14px] mt-1.5">
-            {restaurant?.name ?? "Once restaurant"} · sign in to continue
-          </Text>
+          <Text className="text-text-secondary text-[14px] mt-1.5">Sign in to continue</Text>
         </View>
 
         <View className="gap-4">
@@ -67,12 +51,12 @@ export default function Login() {
             value={password}
             onChangeText={setPassword}
             secureTextEntry
-            error={error}
+            error={errorMessage}
           />
         </View>
 
         <View className="mt-6">
-          <Button label="Sign in" onPress={submit} disabled={!valid} loading={loading} full />
+          <Button label="Sign in" onPress={submit} disabled={!valid} loading={login.isPending} full />
         </View>
 
         <Text className="text-text-muted text-[12px] mt-8 text-center leading-5">

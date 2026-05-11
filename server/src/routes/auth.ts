@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { query } from "../db/pool";
 import { signAccess, signRefresh, verifyRefresh } from "../lib/jwt";
+import { requireAuth } from "../middleware/auth";
 
 export const authRouter = Router();
 
@@ -29,6 +30,15 @@ authRouter.post("/login", async (req, res) => {
     accessToken: signAccess(payload),
     refreshToken: signRefresh(payload),
   });
+});
+
+authRouter.get("/me", requireAuth, async (req, res) => {
+  const r = await query(
+    `SELECT u.id, u.name, u.email, u.role FROM users u WHERE u.id=$1 AND u.restaurant_id=$2 LIMIT 1`,
+    [req.auth!.uid, req.auth!.rid]
+  );
+  if (!r.rowCount) return res.status(404).json({ error: "not_found" });
+  res.json({ user: r.rows[0] });
 });
 
 authRouter.post("/refresh", (req, res) => {

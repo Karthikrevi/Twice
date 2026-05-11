@@ -2,11 +2,20 @@ import { Redirect } from "expo-router";
 import { useSession } from "@/store/session";
 
 export default function Index() {
-  const restaurant = useSession((s) => s.restaurant);
   const user = useSession((s) => s.user);
+  const setupDone = useSession((s) => s.setupDone);
 
-  if (!restaurant?.setupComplete) return <Redirect href="/onboarding" />;
+  if (!setupDone) return <Redirect href="/onboarding" />;
   if (!user) return <Redirect href="/login" />;
-  if (user.role === "kitchen") return <Redirect href="/kitchen" />;
-  return <Redirect href="/(tabs)/orders" />;
+
+  switch (user.role) {
+    case "owner":
+      return <Redirect href={"/(owner)/orders" as any} />;
+    case "manager":
+      return <Redirect href={"/(manager)/orders" as any} />;
+    case "waiter":
+      return <Redirect href={"/(waiter)/tables" as any} />;
+    case "kitchen":
+      return <Redirect href={"/(kitchen)" as any} />;
+  }
 }

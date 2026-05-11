@@ -19,6 +19,29 @@ tablesRouter.get("/", async (req, res) => {
   res.json(r.rows);
 });
 
+tablesRouter.get("/sessions/:sessionId", async (req, res) => {
+  const head = await query(
+    `SELECT id, table_id, guests, opened_at, total_cents FROM table_sessions
+     WHERE id=$1 AND restaurant_id=$2 AND closed_at IS NULL`,
+    [req.params.sessionId, req.auth!.rid]
+  );
+  if (!head.rowCount) return res.status(404).json({ error: "not_found" });
+  const items = await query(
+    `SELECT id, menu_item_id AS "menuItemId", name_snapshot AS name, qty, price_cents AS "priceCents"
+     FROM table_session_items WHERE session_id=$1 AND restaurant_id=$2 ORDER BY id`,
+    [req.params.sessionId, req.auth!.rid]
+  );
+  const h = head.rows[0];
+  res.json({
+    id: h.id,
+    tableId: h.table_id,
+    guests: h.guests,
+    openedAt: h.opened_at,
+    totalCents: h.total_cents,
+    items: items.rows,
+  });
+});
+
 tablesRouter.post("/:id/open", async (req, res) => {
   const guests = Number(req.body?.guests ?? 1);
   const r = await query(

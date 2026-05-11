@@ -44,6 +44,7 @@ export interface RestaurantTable {
   status: "available" | "occupied";
   openedAt?: string;
   items: OrderItem[];
+  sessionId?: string;
 }
 
 export interface User {
@@ -51,13 +52,4 @@ export interface User {
   name: string;
   email: string;
   role: Role;
-}
-
-export interface RestaurantProfile {
-  name: string;
-  location: string;
-  ownerEmail: string;
-  tableCount: number;
-  kitchenOutput: "screen" | "printer";
-  setupComplete: boolean;
 }

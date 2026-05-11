@@ -2,9 +2,11 @@ import { useMemo, useState } from "react";
 import { FlatList, Text, TouchableOpacity, View } from "react-native";
 import { Screen } from "@/components/ui/Screen";
 import { OrderCard } from "@/components/OrderCard";
-import { mockOrders, nextStatus } from "@/data/mock";
+import { ListSkeleton, ErrorState, EmptyState } from "@/components/ui/States";
+import { useOrders, useAdvanceOrderStatus } from "@/hooks/useOrders";
 import { useSession } from "@/store/session";
-import type { Order, OrderStatus } from "@/types";
+import { nextStatus } from "@/data/mock";
+import type { OrderStatus } from "@/types";
 
 const filters: { key: OrderStatus | "all"; label: string }[] = [
   { key: "all", label: "All" },
@@ -13,12 +15,14 @@ const filters: { key: OrderStatus | "all"; label: string }[] = [
   { key: "ready", label: "Ready" },
 ];
 
-export default function Orders() {
+export function OrdersScreen({ hideTotals = false }: { hideTotals?: boolean } = {}) {
   const role = useSession((s) => s.user?.role);
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
   const [filter, setFilter] = useState<OrderStatus | "all">("all");
+  const { data: orders, isLoading, isError, refetch, isFetching } = useOrders();
+  const advance = useAdvanceOrderStatus();
 
   const visible = useMemo(() => {
+    if (!orders) return [];
     let arr = orders;
     if (role === "waiter") arr = arr.filter((o) => o.platform === "dinein");
     if (filter !== "all") arr = arr.filter((o) => o.status === filter);
@@ -26,15 +30,14 @@ export default function Orders() {
   }, [orders, role, filter]);
 
   const counts = useMemo(() => {
-    const base = { all: orders.length, new: 0, preparing: 0, ready: 0 };
-    orders.forEach((o) => {
+    const base = { all: orders?.length ?? 0, new: 0, preparing: 0, ready: 0 };
+    (orders ?? []).forEach((o) => {
       if (o.status in base) (base as any)[o.status]++;
     });
     return base;
   }, [orders]);
 
-  const advance = (id: string) =>
-    setOrders((arr) => arr.map((o) => (o.id === id ? { ...o, status: nextStatus(o.status) } : o)));
+  const canAdvance = role === "owner" || role === "manager";
 
   return (
     <Screen
@@ -43,7 +46,9 @@ export default function Orders() {
       right={
         <View className="bg-surface border border-border rounded-lg flex-row items-center px-2.5" style={{ height: 32 }}>
           <View className="w-1.5 h-1.5 rounded-full bg-status-available mr-1.5" />
-          <Text className="text-text-secondary text-[11px] font-semibold uppercase tracking-wider">Live</Text>
+          <Text className="text-text-secondary text-[11px] font-semibold uppercase tracking-wider">
+            {isFetching ? "Syncing" : "Live"}
+          </Text>
         </View>
       }
     >
@@ -64,25 +69,44 @@ export default function Orders() {
               <Text className={`font-semibold text-[12px] ${active ? "text-black" : "text-text-primary"}`}>
                 {f.label}
               </Text>
-              <Text className={`ml-1.5 text-[12px] ${active ? "text-black/70" : "text-text-muted"}`}>
-                {count}
-              </Text>
+              <Text className={`ml-1.5 text-[12px] ${active ? "text-black/70" : "text-text-muted"}`}>{count}</Text>
             </TouchableOpacity>
           );
         })}
       </View>
-      <FlatList
-        data={visible}
-        keyExtractor={(o) => o.id}
-        renderItem={({ item }) => <OrderCard order={item} onAdvance={() => advance(item.id)} />}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: 24 }}
-        ListEmptyComponent={
-          <View className="items-center py-16">
-            <Text className="text-text-muted text-[13px]">No orders match this filter.</Text>
-          </View>
-        }
-      />
+
+      {isLoading ? (
+        <ListSkeleton count={4} />
+      ) : isError ? (
+        <ErrorState onRetry={() => refetch()} />
+      ) : (
+        <FlatList
+          data={visible}
+          keyExtractor={(o) => o.id}
+          renderItem={({ item }) => (
+            <OrderCard
+              order={item}
+              hideTotals={hideTotals}
+              onAdvance={
+                canAdvance && item.status !== "done"
+                  ? () => advance.mutate({ id: item.id, status: nextStatus(item.status) })
+                  : undefined
+              }
+            />
+          )}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          refreshing={isFetching && !isLoading}
+          onRefresh={() => refetch()}
+          ListEmptyComponent={
+            <EmptyState
+              title="No orders right now"
+              hint={filter === "all" ? "New orders will appear here in real time." : "Try a different filter."}
+              glyph="◧"
+            />
+          }
+        />
+      )}
     </Screen>
   );
 }

@@ -1,38 +1,81 @@
 import { useMemo, useState } from "react";
-import { Text, TouchableOpacity, View, ScrollView, Modal } from "react-native";
+import { Text, TouchableOpacity, View, ScrollView, Modal, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
-import { mockTables, mockMenu } from "@/data/mock";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { colors } from "@/theme/colors";
-import type { OrderItem } from "@/types";
+import { ErrorState, EmptyState, ListSkeleton } from "@/components/ui/States";
+import { useTables, useTableSession, useAddSessionItem, useCloseSession, useOpenTable } from "@/hooks/useTables";
+import { useMenu } from "@/hooks/useMenu";
+import type { MenuItem } from "@/types";
 
 export default function TableDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const original = mockTables.find((t) => t.id === id) ?? mockTables[0];
+  const tables = useTables();
+  const menu = useMenu();
 
-  const [guests, setGuests] = useState(Math.max(1, original.guests || 2));
-  const [items, setItems] = useState<OrderItem[]>(original.items);
+  const table = tables.data?.find((t) => t.id === id);
+  const session = useTableSession(table?.sessionId ?? null);
+  const openTable = useOpenTable();
+  const addItem = useAddSessionItem();
+  const closeSession = useCloseSession();
+
+  const [guests, setGuests] = useState<number>(table?.guests || 2);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [billOpen, setBillOpen] = useState(false);
 
-  const total = useMemo(() => items.reduce((s, i) => s + i.price * i.qty, 0), [items]);
+  const items = session.data?.items ?? [];
+  const total = useMemo(
+    () => items.reduce((s, i) => s + (i.priceCents * i.qty) / 100, 0),
+    [items]
+  );
 
-  const addFromMenu = (m: (typeof mockMenu)[number]) => {
-    setItems((arr) => {
-      const existing = arr.find((i) => i.name === m.name);
-      if (existing) return arr.map((i) => (i.id === existing.id ? { ...i, qty: i.qty + 1 } : i));
-      return [...arr, { id: Math.random().toString(36).slice(2, 9), name: m.name, qty: 1, price: m.price }];
+  const isLoading = tables.isLoading || menu.isLoading;
+  const isError = tables.isError || menu.isError;
+
+  if (isLoading) {
+    return (
+      <SafeAreaView edges={["top"]} className="flex-1 bg-bg">
+        <View className="px-5 pt-2 pb-4">
+          <Text className="text-text-secondary text-[14px]" onPress={() => router.back()}>
+            ‹ Tables
+          </Text>
+        </View>
+        <View className="px-5">
+          <ListSkeleton count={3} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+  if (isError || !table) {
+    return (
+      <SafeAreaView edges={["top"]} className="flex-1 bg-bg">
+        <View className="px-5 pt-2 pb-4">
+          <TouchableOpacity onPress={() => router.back()} hitSlop={12}>
+            <Text className="text-text-secondary text-[14px]">‹ Tables</Text>
+          </TouchableOpacity>
+        </View>
+        <ErrorState onRetry={() => tables.refetch()} message="We couldn't load this table." />
+      </SafeAreaView>
+    );
+  }
+
+  const occ = table.status === "occupied";
+
+  const addFromMenu = (m: MenuItem) => {
+    if (!table.sessionId) return;
+    addItem.mutate({
+      sessionId: table.sessionId,
+      menuItemId: m.id,
+      name: m.name,
+      qty: 1,
+      priceCents: Math.round(m.price * 100),
     });
   };
 
-  const dec = (id: string) =>
-    setItems((arr) =>
-      arr
-        .map((i) => (i.id === id ? { ...i, qty: i.qty - 1 } : i))
-        .filter((i) => i.qty > 0)
-    );
+  const openSession = () => {
+    openTable.mutate({ id: table.id, guests }, { onSuccess: () => tables.refetch() });
+  };
 
   return (
     <SafeAreaView edges={["top", "bottom"]} className="flex-1 bg-bg">
@@ -41,14 +84,20 @@ export default function TableDetail() {
           <Text className="text-text-secondary text-[14px]">‹ Tables</Text>
         </TouchableOpacity>
         <View className="flex-row items-center bg-surfaceActive rounded-full px-3" style={{ height: 28 }}>
-          <View className="w-1.5 h-1.5 rounded-full bg-status-occupied mr-2" />
-          <Text className="text-text-primary text-[11px] font-semibold uppercase">Occupied</Text>
+          <View
+            className={`w-1.5 h-1.5 rounded-full mr-2 ${occ ? "bg-status-occupied" : "bg-status-available"}`}
+          />
+          <Text className="text-text-primary text-[11px] font-semibold uppercase">
+            {occ ? "Occupied" : "Available"}
+          </Text>
         </View>
       </View>
 
       <View className="px-5 pb-3">
-        <Text className="text-text-primary text-[34px] font-bold tracking-tight">{original.name}</Text>
-        <Text className="text-text-secondary text-[13px] mt-0.5">Open since {original.openedAt ? "20m" : "now"}</Text>
+        <Text className="text-text-primary text-[34px] font-bold tracking-tight">{table.name}</Text>
+        <Text className="text-text-secondary text-[13px] mt-0.5">
+          {occ ? `Open since ${table.openedAt ? new Date(table.openedAt).toLocaleTimeString() : "now"}` : "Tap below to open this table"}
+        </Text>
       </View>
 
       <View className="px-5">
@@ -83,7 +132,15 @@ export default function TableDetail() {
         <Text className="text-text-secondary text-[12px] uppercase tracking-widest font-semibold mb-3">
           Order ({items.length})
         </Text>
-        {items.length === 0 ? (
+        {!occ ? (
+          <EmptyState
+            title="Table is available"
+            hint="Open the table to start taking orders."
+            glyph="▦"
+          />
+        ) : session.isLoading ? (
+          <ListSkeleton count={2} />
+        ) : items.length === 0 ? (
           <View className="items-center py-12">
             <Text className="text-text-muted">No items yet — tap "Add items"</Text>
           </View>
@@ -95,19 +152,15 @@ export default function TableDetail() {
             >
               <View className="flex-1">
                 <Text className="text-text-primary font-semibold text-[14px]">{it.name}</Text>
-                <Text className="text-text-secondary text-[12px] mt-0.5">AED {it.price} each</Text>
+                <Text className="text-text-secondary text-[12px] mt-0.5">
+                  AED {(it.priceCents / 100).toFixed(0)} each
+                </Text>
               </View>
-              <TouchableOpacity
-                onPress={() => dec(it.id)}
-                className="w-9 h-9 rounded-lg items-center justify-center bg-surfaceActive border border-border"
-              >
-                <Text className="text-amber text-[18px] font-bold">−</Text>
-              </TouchableOpacity>
               <Text className="text-text-primary font-bold mx-3" style={{ minWidth: 20, textAlign: "center" }}>
                 {it.qty}
               </Text>
               <Text className="text-amber font-bold" style={{ minWidth: 64, textAlign: "right" }}>
-                AED {it.qty * it.price}
+                AED {((it.qty * it.priceCents) / 100).toFixed(0)}
               </Text>
             </View>
           ))
@@ -117,27 +170,55 @@ export default function TableDetail() {
       <View className="px-5 pt-3 border-t border-border bg-bg">
         <View className="flex-row items-center justify-between mb-3">
           <Text className="text-text-secondary text-[13px] uppercase tracking-wider font-semibold">Total</Text>
-          <Text className="text-amber text-[26px] font-bold">AED {total}</Text>
+          <Text className="text-amber text-[26px] font-bold">AED {total.toFixed(0)}</Text>
         </View>
-        <View className="flex-row gap-2 pb-2">
-          <View className="flex-1">
-            <Button variant="secondary" label="Add items" full onPress={() => setPickerOpen(true)} />
+        {!occ ? (
+          <View className="pb-2">
+            <Button label="Open table" full onPress={openSession} loading={openTable.isPending} />
           </View>
-          <View className="flex-1">
-            <Button label="Close bill" full onPress={() => setBillOpen(true)} disabled={items.length === 0} />
+        ) : (
+          <View className="flex-row gap-2 pb-2">
+            <View className="flex-1">
+              <Button variant="secondary" label="Add items" full onPress={() => setPickerOpen(true)} />
+            </View>
+            <View className="flex-1">
+              <Button
+                label="Close bill"
+                full
+                onPress={() => setBillOpen(true)}
+                disabled={items.length === 0}
+              />
+            </View>
           </View>
-        </View>
+        )}
       </View>
 
-      <MenuPicker open={pickerOpen} onClose={() => setPickerOpen(false)} onPick={addFromMenu} />
+      <MenuPicker
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={addFromMenu}
+        menu={menu.data ?? []}
+      />
       <CloseBillSheet
         open={billOpen}
         onClose={() => setBillOpen(false)}
         total={total}
         guests={guests}
-        onDone={() => {
-          setBillOpen(false);
-          router.back();
+        loading={closeSession.isPending}
+        onDone={(method) => {
+          if (!table.sessionId) return;
+          closeSession.mutate(
+            {
+              sessionId: table.sessionId,
+              splits: [{ amountCents: Math.round(total * 100), method }],
+            },
+            {
+              onSuccess: () => {
+                setBillOpen(false);
+                router.back();
+              },
+            }
+          );
         }}
       />
     </SafeAreaView>
@@ -148,10 +229,12 @@ function MenuPicker({
   open,
   onClose,
   onPick,
+  menu,
 }: {
   open: boolean;
   onClose: () => void;
-  onPick: (m: (typeof mockMenu)[number]) => void;
+  onPick: (m: MenuItem) => void;
+  menu: MenuItem[];
 }) {
   return (
     <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
@@ -164,7 +247,7 @@ function MenuPicker({
             </TouchableOpacity>
           </View>
           <ScrollView className="px-5" contentContainerStyle={{ paddingTop: 12, paddingBottom: 24 }}>
-            {mockMenu.filter((m) => m.available).map((m) => (
+            {menu.filter((m) => m.available).map((m) => (
               <TouchableOpacity
                 key={m.id}
                 onPress={() => onPick(m)}
@@ -197,13 +280,15 @@ function CloseBillSheet({
   onClose,
   total,
   guests,
+  loading,
   onDone,
 }: {
   open: boolean;
   onClose: () => void;
   total: number;
   guests: number;
-  onDone: () => void;
+  loading: boolean;
+  onDone: (method: Pay) => void;
 }) {
   const [mode, setMode] = useState<SplitMode>("even");
   const [payment, setPayment] = useState<Pay>("card");
@@ -278,7 +363,7 @@ function CloseBillSheet({
 
           <View className="flex-row items-center justify-between mb-4">
             <Text className="text-text-secondary text-[14px]">Total</Text>
-            <Text className="text-text-primary text-[22px] font-bold">AED {total}</Text>
+            <Text className="text-text-primary text-[22px] font-bold">AED {total.toFixed(0)}</Text>
           </View>
 
           <View className="flex-row gap-2 mb-2">
@@ -286,12 +371,18 @@ function CloseBillSheet({
               <Button variant="secondary" label="Print bill" full />
             </View>
             <View className="flex-1">
-              <Button label="Mark paid" full onPress={onDone} />
+              <Button label="Mark paid" full onPress={() => onDone(payment)} loading={loading} />
             </View>
           </View>
-          <Text className="text-text-muted text-[11px] text-center mt-2">
-            Marking paid resets the table to available, deducts stock and logs the action.
-          </Text>
+          {loading ? (
+            <View className="items-center mt-3">
+              <ActivityIndicator color="#F5A623" />
+            </View>
+          ) : (
+            <Text className="text-text-muted text-[11px] text-center mt-2">
+              Marking paid resets the table to available, deducts stock and logs the action.
+            </Text>
+          )}
         </View>
       </View>
     </Modal>

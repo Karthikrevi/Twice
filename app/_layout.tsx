@@ -1,6 +1,6 @@
 import "../global.css";
-import { useEffect } from "react";
-import { Stack } from "expo-router";
+import { useEffect, useState } from "react";
+import { Stack, router } from "expo-router";
 import { useFonts } from "expo-font";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
@@ -8,24 +8,56 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { View } from "react-native";
+import { secureStorage } from "@/lib/secureStorage";
+import { setSessionExpiredHandler } from "@/lib/api";
+import { connectSocket, disconnectSocket } from "@/lib/socket";
+import { useSession } from "@/store/session";
+import type { User } from "@/types";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { retry: 1, refetchOnWindowFocus: false },
+  },
+});
 
 export default function RootLayout() {
-  const [loaded] = useFonts({
+  const [fontsLoaded] = useFonts({
     Inter_400Regular: require("../assets/fonts/Inter-Regular.ttf"),
     Inter_500Medium: require("../assets/fonts/Inter-Medium.ttf"),
     Inter_600SemiBold: require("../assets/fonts/Inter-SemiBold.ttf"),
     Inter_700Bold: require("../assets/fonts/Inter-Bold.ttf"),
   });
+  const [bootstrapped, setBootstrapped] = useState(false);
 
   useEffect(() => {
-    if (loaded) SplashScreen.hideAsync().catch(() => {});
-  }, [loaded]);
+    setSessionExpiredHandler(() => {
+      disconnectSocket();
+      useSession.getState().signOut();
+      router.replace("/login");
+    });
 
-  if (!loaded) {
+    (async () => {
+      const [access, user, setupDone] = await Promise.all([
+        secureStorage.getAccess(),
+        secureStorage.getUser<User>(),
+        secureStorage.isSetupDone(),
+      ]);
+      const s = useSession.getState();
+      s.setSetupDone(setupDone);
+      if (user) s.setUser(user);
+      if (access && user) connectSocket(access);
+      s.setBootstrapped(true);
+      setBootstrapped(true);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (fontsLoaded && bootstrapped) SplashScreen.hideAsync().catch(() => {});
+  }, [fontsLoaded, bootstrapped]);
+
+  if (!fontsLoaded || !bootstrapped) {
     return <View style={{ flex: 1, backgroundColor: "#0D0F14" }} />;
   }
 
