@@ -54,7 +54,7 @@ const initial = {
 export const useOnboarding = create<OnboardingState>((set) => ({
   ...initial,
   set: (patch) => set(patch),
-  next: () => set((s) => ({ step: Math.min(s.step + 1, 5) })),
+  next: () => set((s) => ({ step: Math.min(s.step + 1, 4) })),
   prev: () => set((s) => ({ step: Math.max(s.step - 1, 0) })),
   reset: () => set(initial),
   addMenuItem: (item) => set((s) => ({ menu: [...s.menu, item] })),

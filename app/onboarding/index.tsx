@@ -1,10 +1,9 @@
 import { useOnboarding } from "@/store/onboarding";
 import { Step1Account } from "@/screens/onboarding/Step1Account";
-import { Step2Tables } from "@/screens/onboarding/Step2Tables";
-import { Step3Kitchen } from "@/screens/onboarding/Step3Kitchen";
-import { Step4Menu } from "@/screens/onboarding/Step4Menu";
-import { Step5Platforms } from "@/screens/onboarding/Step5Platforms";
-import { Step6Staff } from "@/screens/onboarding/Step6Staff";
+import { Step2Space } from "@/screens/onboarding/Step2Space";
+import { Step3Menu } from "@/screens/onboarding/Step3Menu";
+import { Step4Platforms } from "@/screens/onboarding/Step4Platforms";
+import { Step5Staff } from "@/screens/onboarding/Step5Staff";
 
 export default function OnboardingRouter() {
   const step = useOnboarding((s) => s.step);
@@ -12,14 +11,12 @@ export default function OnboardingRouter() {
     case 0:
       return <Step1Account />;
     case 1:
-      return <Step2Tables />;
+      return <Step2Space />;
     case 2:
-      return <Step3Kitchen />;
+      return <Step3Menu />;
     case 3:
-      return <Step4Menu />;
-    case 4:
-      return <Step5Platforms />;
+      return <Step4Platforms />;
     default:
-      return <Step6Staff />;
+      return <Step5Staff />;
   }
 }
