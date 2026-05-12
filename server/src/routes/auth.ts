@@ -79,6 +79,56 @@ authRouter.post("/verify-pin", requireAuth, async (req, res) => {
   res.json({ ok: true });
 });
 
+const googleSchema = z.object({ access_token: z.string().min(8) });
+
+authRouter.post("/google", async (req, res) => {
+  const parsed = googleSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "bad_input" });
+
+  // Verify the access token against Google's userinfo endpoint.
+  let userinfo: { email?: string; email_verified?: boolean; name?: string } | null = null;
+  try {
+    const r = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { Authorization: `Bearer ${parsed.data.access_token}` },
+    });
+    if (!r.ok) return res.status(401).json({ error: "invalid_google_token" });
+    userinfo = await r.json();
+  } catch {
+    return res.status(502).json({ error: "google_unreachable" });
+  }
+
+  const email = userinfo?.email?.toLowerCase();
+  if (!email) return res.status(400).json({ error: "no_email" });
+  if (userinfo?.email_verified === false) {
+    return res.status(401).json({ error: "email_not_verified" });
+  }
+
+  // Find a Once user by email. Per spec we only allow existing users
+  // (typically the owner who registered) — no auto-provisioning.
+  const r = await query(
+    `SELECT u.id, u.name, u.role, u.restaurant_id, rest.name AS restaurant_name
+     FROM users u JOIN restaurants rest ON rest.id = u.restaurant_id
+     WHERE u.email = $1 LIMIT 1`,
+    [email]
+  );
+  if (!r.rowCount) {
+    return res.status(404).json({
+      error: "no_once_account",
+      message:
+        "No Once account found for this Google account. Please register first.",
+    });
+  }
+
+  const user = r.rows[0];
+  const payload = { uid: user.id, rid: user.restaurant_id, role: user.role };
+  res.json({
+    user: { id: user.id, name: user.name, email, role: user.role },
+    accessToken: signAccess(payload),
+    refreshToken: signRefresh(payload, "7d"),
+    restaurantName: user.restaurant_name,
+  });
+});
+
 authRouter.post("/refresh", (req, res) => {
   const token = req.body?.refreshToken as string | undefined;
   if (!token) return res.status(400).json({ error: "missing_token" });

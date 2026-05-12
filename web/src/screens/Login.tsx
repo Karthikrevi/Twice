@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
+import { useGoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 import { api } from "@/lib/api";
 import { storage } from "@/lib/storage";
@@ -35,21 +36,49 @@ export default function Login() {
   const [keepLoggedIn, setKeepLoggedIn] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
 
+  // Shared session-bootstrap used by both email and Google login flows.
+  const completeLogin = (
+    data: LoginResponse,
+    options: { keepLoggedIn: boolean }
+  ) => {
+    storage.setAccess(data.accessToken);
+    storage.setRefresh(data.refreshToken);
+    storage.setUser(data.user);
+    storage.setKeepLoggedIn(options.keepLoggedIn);
+    if (data.restaurantName) storage.setRestaurantName(data.restaurantName);
+    connectSocket(data.accessToken);
+    setUser(data.user);
+    if (data.restaurantName) setRestaurantName(data.restaurantName);
+    navigate(ROLE_HOME[data.user.role], { replace: true });
+  };
+
   const login = useMutation({
     mutationFn: async (input: { email: string; password: string; keepLoggedIn: boolean }) => {
       const { data } = await api.post<LoginResponse>("/auth/login", input);
       return { ...data, keepLoggedIn: input.keepLoggedIn };
     },
     onSuccess: (data) => {
-      storage.setAccess(data.accessToken);
-      storage.setRefresh(data.refreshToken);
-      storage.setUser(data.user);
-      storage.setKeepLoggedIn(data.keepLoggedIn);
-      if (data.restaurantName) storage.setRestaurantName(data.restaurantName);
-      connectSocket(data.accessToken);
-      setUser(data.user);
-      if (data.restaurantName) setRestaurantName(data.restaurantName);
-      navigate(ROLE_HOME[data.user.role], { replace: true });
+      completeLogin(data, { keepLoggedIn: data.keepLoggedIn });
+    },
+  });
+
+  const googleMut = useMutation({
+    mutationFn: async (access_token: string) => {
+      const { data } = await api.post<LoginResponse>("/auth/google", { access_token });
+      return data;
+    },
+    onSuccess: (data) => {
+      completeLogin(data, { keepLoggedIn });
+    },
+  });
+
+  const googleLogin = useGoogleLogin({
+    onSuccess: (tokenResponse) => {
+      googleMut.reset();
+      googleMut.mutate(tokenResponse.access_token);
+    },
+    onError: () => {
+      // user cancelled or Google popup blocked — handled inline below
     },
   });
 
@@ -67,6 +96,13 @@ export default function Login() {
     ? axios.isAxiosError(login.error) && login.error.response?.status === 401
       ? "Email or password is incorrect."
       : "We couldn't sign you in. Try again."
+    : undefined;
+
+  const googleErrorMessage = googleMut.isError
+    ? axios.isAxiosError(googleMut.error) && googleMut.error.response?.status === 404
+      ? (googleMut.error.response.data as { message?: string } | undefined)?.message ??
+        "No Once account found for this Google account. Please register first."
+      : "We couldn't sign you in with Google. Try again."
     : undefined;
 
   return (
@@ -96,6 +132,35 @@ export default function Login() {
             </p>
           </div>
         ) : null}
+
+        {/* Google sign-in */}
+        <button
+          type="button"
+          onClick={() => {
+            googleMut.reset();
+            googleLogin();
+          }}
+          disabled={googleMut.isPending}
+          className="w-full h-[52px] bg-surface border border-border rounded-xl flex items-center justify-center gap-3 hover:border-amber/50 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {googleMut.isPending ? <Spinner /> : <GoogleIcon />}
+          <span className="text-text-primary font-semibold text-sm">
+            {googleMut.isPending ? "Signing in…" : "Continue with Google"}
+          </span>
+        </button>
+
+        {googleErrorMessage ? (
+          <p className="text-status-urgent text-xs mt-2">{googleErrorMessage}</p>
+        ) : null}
+
+        {/* Divider */}
+        <div className="flex items-center gap-3 my-5">
+          <span className="flex-1 h-px bg-border" />
+          <span className="text-text-muted text-xs uppercase tracking-widest">
+            or
+          </span>
+          <span className="flex-1 h-px bg-border" />
+        </div>
 
         {/* Email */}
         <label className="block">
@@ -347,6 +412,29 @@ function CheckIcon() {
       strokeLinejoin="round"
     >
       <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.45c-.28 1.45-1.12 2.68-2.39 3.51v2.92h3.86c2.26-2.08 3.57-5.15 3.57-8.67z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.95-1.07 7.93-2.91l-3.86-2.92c-1.07.72-2.44 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.12C3.26 21.3 7.31 24 12 24z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.27 14.37A7.187 7.187 0 0 1 4.87 12c0-.82.14-1.62.4-2.37V6.51H1.29A11.98 11.98 0 0 0 0 12c0 1.94.47 3.77 1.29 5.39l3.98-3.02z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.74c1.77 0 3.35.61 4.6 1.81l3.42-3.42C17.95 1.18 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.61l3.98 3.02C6.22 6.85 8.87 4.74 12 4.74z"
+      />
     </svg>
   );
 }
