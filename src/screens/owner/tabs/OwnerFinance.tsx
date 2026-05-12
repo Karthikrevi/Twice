@@ -5,6 +5,7 @@ import { FinanceOverview } from "@/screens/owner/tabs/finance/FinanceOverview";
 import { FinancePlatforms } from "@/screens/owner/tabs/finance/FinancePlatforms";
 import { FinanceTill } from "@/screens/owner/tabs/finance/FinanceTill";
 import { FinanceSettlements } from "@/screens/owner/tabs/finance/FinanceSettlements";
+import { FinanceServers } from "@/screens/owner/tabs/finance/FinanceServers";
 
 const BG = "#0D0F14";
 const SURFACE = "#161920";
@@ -155,12 +156,7 @@ export function OwnerFinance() {
         ) : activeSub === "settlements" ? (
           <FinanceSettlements />
         ) : (
-          // TODO: FinanceServers screen not built yet.
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32 }}>
-            <Text style={{ color: TEXT_MUTED, fontFamily: "Inter_400Regular", fontSize: 13 }}>
-              Coming soon
-            </Text>
-          </View>
+          <FinanceServers />
         )}
       </View>
     </View>
