@@ -7,6 +7,10 @@ import { FinanceTill } from "@/screens/owner/tabs/finance/FinanceTill";
 import { FinanceSettlements } from "@/screens/owner/tabs/finance/FinanceSettlements";
 import { FinanceServers } from "@/screens/owner/tabs/finance/FinanceServers";
 import { usePinPrompt } from "@/hooks/usePinPrompt";
+import { useDailyReport } from "@/hooks/useReports";
+import { useSession } from "@/store/session";
+import { printDailyReport } from "@/lib/print";
+import type { PlatformKey } from "@/theme/colors";
 
 const BG = "#0D0F14";
 const SURFACE = "#161920";
@@ -40,7 +44,10 @@ const formatDateLabel = (d: Date) => {
 export function ManagerFinance() {
   const [selectedDate, setSelectedDate] = useState<Date>(() => startOfDay(new Date()));
   const [activeSub, setActiveSub] = useState<SubTab>("overview");
+  const [exporting, setExporting] = useState(false);
   const { requirePin, PinPromptModal } = usePinPrompt();
+  const report = useDailyReport();
+  const restaurantName = useSession((s) => s.restaurantName) ?? "Once Restaurant";
 
   const shiftDay = (delta: number) => {
     setSelectedDate((d) => {
@@ -50,8 +57,30 @@ export function ManagerFinance() {
     });
   };
 
-  const onExport = () =>
-    requirePin(() => Alert.alert("PDF export coming soon."));
+  const doExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      await printDailyReport({
+        restaurantName,
+        date: selectedDate,
+        byPlatform: (report.data?.byPlatform ?? []).map((r) => ({
+          platform: r.platform as PlatformKey,
+          grossCents: r.gross ?? 0,
+          commissionCents: r.commission ?? 0,
+          netCents: r.net ?? 0,
+          rate: r.rate ?? 0,
+        })),
+        tills: report.data?.tills ?? {},
+      });
+    } catch {
+      Alert.alert("Print failed — try again");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const onExport = () => requirePin(doExport);
 
   // TODO: edit actions inside the sub-screens (FinanceTill "Mark day
   // complete", any future Disconnect/Reconnect in FinancePlatforms) are
@@ -99,6 +128,7 @@ export function ManagerFinance() {
 
         <TouchableOpacity
           onPress={onExport}
+          disabled={exporting}
           activeOpacity={0.85}
           style={{
             marginLeft: 12,
@@ -110,11 +140,12 @@ export function ManagerFinance() {
             flexDirection: "row",
             alignItems: "center",
             gap: 6,
+            opacity: exporting ? 0.6 : 1,
           }}
         >
           <Feather name="lock" size={12} color={AMBER} />
           <Text style={{ color: AMBER, fontFamily: "Inter_600SemiBold", fontSize: 12 }}>
-            Export PDF
+            {exporting ? "Printing…" : "Export PDF"}
           </Text>
         </TouchableOpacity>
       </View>

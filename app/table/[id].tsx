@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Text, TouchableOpacity, View, ScrollView, Modal, ActivityIndicator } from "react-native";
+import { Alert, Text, TouchableOpacity, View, ScrollView, Modal, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { router, useLocalSearchParams } from "expo-router";
 import { Button } from "@/components/ui/Button";
@@ -8,6 +8,8 @@ import { ErrorState, EmptyState, ListSkeleton } from "@/components/ui/States";
 import { useTables, useTableSession, useAddSessionItem, useCloseSession, useOpenTable } from "@/hooks/useTables";
 import { useMenu } from "@/hooks/useMenu";
 import { useOrders, useAdvanceOrderStatus } from "@/hooks/useOrders";
+import { useSession } from "@/store/session";
+import { printBill } from "@/lib/print";
 import { nextStatus } from "@/data/mock";
 import type { MenuItem } from "@/types";
 
@@ -284,6 +286,12 @@ export default function TableDetail() {
         total={total}
         guests={guests}
         loading={closeSession.isPending}
+        items={items.map((it) => ({
+          name: it.name,
+          qty: it.qty,
+          priceCents: it.priceCents,
+        }))}
+        tableName={table.name}
         onDone={(method) => {
           if (!table.sessionId) return;
           closeSession.mutate(
@@ -361,6 +369,8 @@ function CloseBillSheet({
   guests,
   loading,
   onDone,
+  items,
+  tableName,
 }: {
   open: boolean;
   onClose: () => void;
@@ -368,11 +378,36 @@ function CloseBillSheet({
   guests: number;
   loading: boolean;
   onDone: (method: Pay) => void;
+  items: { name: string; qty: number; priceCents: number }[];
+  tableName?: string;
 }) {
   const [mode, setMode] = useState<SplitMode>("even");
   const [payment, setPayment] = useState<Pay>("card");
+  const [printing, setPrinting] = useState(false);
+  const restaurantName = useSession((s) => s.restaurantName);
 
   const perGuest = guests > 0 ? total / guests : total;
+
+  const onPrintBill = async () => {
+    if (printing) return;
+    setPrinting(true);
+    try {
+      await printBill({
+        restaurantName: restaurantName ?? "Once Restaurant",
+        items,
+        guests,
+        splitType: mode,
+        paymentMethod: payment,
+        tableName,
+      });
+    } catch (e) {
+      // User cancelled or no printer — surface a brief alert and
+      // continue. Never crash the close-bill flow.
+      Alert.alert("Print failed — try again");
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   return (
     <Modal visible={open} animationType="slide" transparent onRequestClose={onClose}>
@@ -447,7 +482,14 @@ function CloseBillSheet({
 
           <View className="flex-row gap-2 mb-2">
             <View className="flex-1">
-              <Button variant="secondary" label="Print bill" full />
+              <Button
+                variant="secondary"
+                label={printing ? "Printing…" : "Print bill"}
+                full
+                onPress={onPrintBill}
+                loading={printing}
+                disabled={items.length === 0}
+              />
             </View>
             <View className="flex-1">
               <Button label="Mark paid" full onPress={() => onDone(payment)} loading={loading} />
