@@ -6,6 +6,7 @@ import { setSessionExpiredHandler } from "@/lib/api";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
 import type { User } from "@/store/session";
 import Login from "@/screens/Login";
+import Onboarding from "@/screens/Onboarding";
 import OwnerDashboard from "@/screens/owner/OwnerDashboard";
 
 const ROLE_HOME: Record<Role, string> = {
@@ -80,7 +81,8 @@ export default function App() {
     <Routes>
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<Login />} />
-      <Route path="/onboarding" element={<Placeholder name="Onboarding" />} />
+      <Route path="/register" element={<Onboarding />} />
+      <Route path="/onboarding" element={<Navigate to="/register" replace />} />
       <Route
         path="/owner/*"
         element={

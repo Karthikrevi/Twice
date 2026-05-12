@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
 import axios from "axios";
 import { api } from "@/lib/api";
@@ -23,6 +23,8 @@ interface LoginResponse {
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const successMessage = (location.state as { successMessage?: string } | null)?.successMessage;
   const restaurantName = useSession((s) => s.restaurantName);
   const setUser = useSession((s) => s.setUser);
   const setRestaurantName = useSession((s) => s.setRestaurantName);
@@ -86,6 +88,14 @@ export default function Login() {
         <p className="text-text-secondary text-sm mt-1 mb-6 text-left">
           {(restaurantName ?? "Once") + " · sign in to continue"}
         </p>
+
+        {successMessage ? (
+          <div className="mb-5 rounded-xl border border-status-available/40 bg-status-available/10 px-4 py-3">
+            <p className="text-status-available text-sm font-medium">
+              {successMessage}
+            </p>
+          </div>
+        ) : null}
 
         {/* Email */}
         <label className="block">
@@ -171,6 +181,15 @@ export default function Login() {
         >
           {login.isPending ? <Spinner /> : "Sign in"}
         </button>
+
+        <p className="text-center text-sm mt-4">
+          <Link
+            to="/register"
+            className="text-amber hover:opacity-80 cursor-pointer transition-opacity font-medium"
+          >
+            Register your restaurant
+          </Link>
+        </p>
 
         <p className="text-text-muted text-xs text-center mt-6">
           Sessions expire after 15 minutes of inactivity.
