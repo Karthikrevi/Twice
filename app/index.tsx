@@ -10,7 +10,7 @@ export default function Index() {
 
   switch (user.role) {
     case "owner":
-      return <Redirect href={"/(owner)/orders" as any} />;
+      return <Redirect href={"/(owner)/" as any} />;
     case "manager":
       return <Redirect href={"/(manager)/orders" as any} />;
     case "waiter":

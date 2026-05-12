@@ -5,6 +5,12 @@ import { useOrders } from "@/hooks/useOrders";
 import { useTables } from "@/hooks/useTables";
 import { useDailyReport } from "@/hooks/useReports";
 import { OwnerOrders } from "@/screens/owner/tabs/OwnerOrders";
+import { OwnerDinein } from "@/screens/owner/tabs/OwnerDinein";
+import { OwnerFinance } from "@/screens/owner/tabs/OwnerFinance";
+// TODO: dedicated Platforms + Settings screens not built yet — reuse
+// SettingsScreen for both tabs as a placeholder.
+import { SettingsScreen } from "@/screens/SettingsScreen";
+import { RoleGate } from "@/components/RoleGate";
 
 const BG = "#0D0F14";
 const SURFACE = "#161920";
@@ -83,24 +89,28 @@ export function OwnerDashboard() {
           value={`${occupied}/${totalTables}`}
           loading={tables.isLoading}
         />
-        <StatCard
-          label="Revenue today"
-          value={`AED ${netRevenue.toFixed(0)}`}
-          valueColor={AMBER}
-          accessory={
-            <Text
-              style={{
-                color: TEXT_SECONDARY,
-                fontFamily: "Inter_400Regular",
-                fontSize: 10,
-                marginTop: 4,
-              }}
-            >
-              after commission
-            </Text>
-          }
-          loading={report.isLoading}
-        />
+        {/* Revenue is sensitive — hide for waiter role even if the screen
+            is ever reached outside the owner shell. */}
+        <RoleGate roles={["owner", "manager"]}>
+          <StatCard
+            label="Revenue today"
+            value={`AED ${netRevenue.toFixed(0)}`}
+            valueColor={AMBER}
+            accessory={
+              <Text
+                style={{
+                  color: TEXT_SECONDARY,
+                  fontFamily: "Inter_400Regular",
+                  fontSize: 10,
+                  marginTop: 4,
+                }}
+              >
+                after commission
+              </Text>
+            }
+            loading={report.isLoading}
+          />
+        </RoleGate>
         <StatCard
           label="Awaiting"
           value={String(awaiting)}
@@ -170,12 +180,16 @@ export function OwnerDashboard() {
       <View style={{ flex: 1 }}>
         {activeTab === "orders" ? (
           <OwnerOrders />
+        ) : activeTab === "dinein" ? (
+          <OwnerDinein />
+        ) : activeTab === "finance" ? (
+          <OwnerFinance />
+        ) : activeTab === "platforms" ? (
+          // TODO: replace with dedicated PlatformsScreen when built.
+          <SettingsScreen />
         ) : (
-          <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32 }}>
-            <Text style={{ color: "#4A4F5E", fontFamily: "Inter_400Regular", fontSize: 13 }}>
-              Coming soon
-            </Text>
-          </View>
+          // TODO: replace with dedicated owner Settings screen when built.
+          <SettingsScreen />
         )}
       </View>
     </SafeAreaView>

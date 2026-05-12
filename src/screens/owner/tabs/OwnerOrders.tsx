@@ -12,6 +12,7 @@ import {
 import Feather from "@expo/vector-icons/Feather";
 import { useOrders, useAdvanceOrderStatus } from "@/hooks/useOrders";
 import { ListSkeleton } from "@/components/ui/States";
+import { RoleGate } from "@/components/RoleGate";
 import { colors, platformLabel, type PlatformKey } from "@/theme/colors";
 import { nextStatus } from "@/data/mock";
 import type { Order, OrderStatus } from "@/types";
@@ -280,54 +281,63 @@ function OrderCard({
         <StatusBadge status={order.status} />
 
         {order.status === "new" ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-            <TouchableOpacity
-              onPress={onConfirm}
-              activeOpacity={0.85}
-              style={{
-                height: 36,
-                paddingHorizontal: 16,
-                borderRadius: 10,
-                backgroundColor: SUCCESS,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text style={{ color: "#000", fontFamily: "Inter_600SemiBold", fontSize: 12, letterSpacing: 0.8 }}>
-                CONFIRM
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={onReject}
-              activeOpacity={0.85}
-              style={{
-                height: 36,
-                paddingHorizontal: 12,
-                borderRadius: 10,
-                backgroundColor: URGENT,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 12, letterSpacing: 0.8 }}>
-                REJECT
-              </Text>
-            </TouchableOpacity>
-          </View>
+          // Status-update buttons hidden for kitchen role.
+          <RoleGate roles={["owner", "manager", "waiter"]}>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <TouchableOpacity
+                onPress={onConfirm}
+                activeOpacity={0.85}
+                style={{
+                  height: 36,
+                  paddingHorizontal: 16,
+                  borderRadius: 10,
+                  backgroundColor: SUCCESS,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ color: "#000", fontFamily: "Inter_600SemiBold", fontSize: 12, letterSpacing: 0.8 }}>
+                  CONFIRM
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={onReject}
+                activeOpacity={0.85}
+                style={{
+                  height: 36,
+                  paddingHorizontal: 12,
+                  borderRadius: 10,
+                  backgroundColor: URGENT,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ color: "#FFF", fontFamily: "Inter_600SemiBold", fontSize: 12, letterSpacing: 0.8 }}>
+                  REJECT
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </RoleGate>
         ) : (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <Text style={{ color: TEXT_PRIMARY, fontFamily: "Inter_700Bold", fontSize: 15 }}>
-              AED {order.total.toFixed(0)}
-            </Text>
-            {order.status === "preparing" ? (
-              <ActionButton label="MARK READY" color={AMBER} textColor="#000" onPress={onAdvance} />
-            ) : order.status === "ready" ? (
-              isDinein ? (
-                <ActionButton label="MARK DELIVERED" color={SUCCESS} textColor="#000" onPress={onAdvance} />
-              ) : (
-                <ActionButton label="PACK" color={AMBER} textColor="#000" onPress={onAdvance} />
-              )
-            ) : null}
+            {/* Revenue total hidden for waiter role. */}
+            <RoleGate roles={["owner", "manager", "kitchen"]}>
+              <Text style={{ color: TEXT_PRIMARY, fontFamily: "Inter_700Bold", fontSize: 15 }}>
+                AED {order.total.toFixed(0)}
+              </Text>
+            </RoleGate>
+            {/* Status-update buttons hidden for kitchen role. */}
+            <RoleGate roles={["owner", "manager", "waiter"]}>
+              {order.status === "preparing" ? (
+                <ActionButton label="MARK READY" color={AMBER} textColor="#000" onPress={onAdvance} />
+              ) : order.status === "ready" ? (
+                isDinein ? (
+                  <ActionButton label="MARK DELIVERED" color={SUCCESS} textColor="#000" onPress={onAdvance} />
+                ) : (
+                  <ActionButton label="PACK" color={AMBER} textColor="#000" onPress={onAdvance} />
+                )
+              ) : null}
+            </RoleGate>
           </View>
         )}
       </View>

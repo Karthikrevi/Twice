@@ -16,7 +16,7 @@ interface LoginResponse {
 const roleHome = (role: User["role"]) => {
   switch (role) {
     case "owner":
-      return "/(owner)/orders";
+      return "/(owner)/";
     case "manager":
       return "/(manager)/orders";
     case "waiter":

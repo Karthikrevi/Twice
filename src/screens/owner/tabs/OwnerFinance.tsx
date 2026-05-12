@@ -2,6 +2,9 @@ import { useState } from "react";
 import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import Feather from "@expo/vector-icons/Feather";
 import { FinanceOverview } from "@/screens/owner/tabs/finance/FinanceOverview";
+import { FinancePlatforms } from "@/screens/owner/tabs/finance/FinancePlatforms";
+import { FinanceTill } from "@/screens/owner/tabs/finance/FinanceTill";
+import { FinanceSettlements } from "@/screens/owner/tabs/finance/FinanceSettlements";
 
 const BG = "#0D0F14";
 const SURFACE = "#161920";
@@ -145,7 +148,14 @@ export function OwnerFinance() {
       <View style={{ flex: 1 }}>
         {activeSub === "overview" ? (
           <FinanceOverview selectedDate={selectedDate} />
+        ) : activeSub === "platforms" ? (
+          <FinancePlatforms />
+        ) : activeSub === "till" ? (
+          <FinanceTill selectedDate={selectedDate} />
+        ) : activeSub === "settlements" ? (
+          <FinanceSettlements />
         ) : (
+          // TODO: FinanceServers screen not built yet.
           <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32 }}>
             <Text style={{ color: TEXT_MUTED, fontFamily: "Inter_400Regular", fontSize: 13 }}>
               Coming soon
