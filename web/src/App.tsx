@@ -8,6 +8,7 @@ import type { User } from "@/store/session";
 import Login from "@/screens/Login";
 import Onboarding from "@/screens/Onboarding";
 import OwnerDashboard from "@/screens/owner/OwnerDashboard";
+import StaffManagement from "@/screens/owner/StaffManagement";
 
 const ROLE_HOME: Record<Role, string> = {
   owner: "/owner",
@@ -83,6 +84,14 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Onboarding />} />
       <Route path="/onboarding" element={<Navigate to="/register" replace />} />
+      <Route
+        path="/owner/staff"
+        element={
+          <RequireAuth>
+            <StaffManagement />
+          </RequireAuth>
+        }
+      />
       <Route
         path="/owner/*"
         element={

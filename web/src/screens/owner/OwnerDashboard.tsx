@@ -9,6 +9,8 @@ import { logout } from "@/hooks/useAuth";
 import OwnerOrders from "@/screens/owner/tabs/OwnerOrders";
 import OwnerDinein from "@/screens/owner/tabs/OwnerDinein";
 import OwnerFinance from "@/screens/owner/tabs/OwnerFinance";
+import OwnerPlatforms from "@/screens/owner/OwnerPlatforms";
+import OwnerSettings from "@/screens/owner/OwnerSettings";
 
 type TabKey = "orders" | "dinein" | "finance" | "platforms" | "settings";
 
@@ -184,6 +186,10 @@ export default function OwnerDashboard() {
           <OwnerDinein />
         ) : active === "finance" ? (
           <OwnerFinance />
+        ) : active === "platforms" ? (
+          <OwnerPlatforms />
+        ) : active === "settings" ? (
+          <OwnerSettings />
         ) : (
           <ComingSoon label={NAV.find((n) => n.key === active)?.label ?? ""} />
         )}
