@@ -7,8 +7,9 @@ import { useDailyReport } from "@/hooks/useReports";
 import { OwnerOrders } from "@/screens/owner/tabs/OwnerOrders";
 import { OwnerDinein } from "@/screens/owner/tabs/OwnerDinein";
 import { OwnerFinance } from "@/screens/owner/tabs/OwnerFinance";
-// TODO: dedicated Platforms + Settings screens not built yet — reuse
-// SettingsScreen for both tabs as a placeholder.
+import { OwnerPlatforms } from "@/screens/owner/OwnerPlatforms";
+// TODO: dedicated owner Settings screen not built yet — reuse the shared
+// SettingsScreen for the Settings tab until then.
 import { SettingsScreen } from "@/screens/SettingsScreen";
 import { RoleGate } from "@/components/RoleGate";
 
@@ -185,8 +186,7 @@ export function OwnerDashboard() {
         ) : activeTab === "finance" ? (
           <OwnerFinance />
         ) : activeTab === "platforms" ? (
-          // TODO: replace with dedicated PlatformsScreen when built.
-          <SettingsScreen />
+          <OwnerPlatforms />
         ) : (
           // TODO: replace with dedicated owner Settings screen when built.
           <SettingsScreen />
