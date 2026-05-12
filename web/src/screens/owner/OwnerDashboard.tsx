@@ -7,6 +7,7 @@ import { useSocketSync } from "@/hooks/useSocketSync";
 import { useSession } from "@/store/session";
 import { logout } from "@/hooks/useAuth";
 import OwnerOrders from "@/screens/owner/tabs/OwnerOrders";
+import OwnerDinein from "@/screens/owner/tabs/OwnerDinein";
 
 type TabKey = "orders" | "dinein" | "finance" | "platforms" | "settings";
 
@@ -178,6 +179,8 @@ export default function OwnerDashboard() {
       <main className="ml-48 mt-14 flex-1 overflow-auto bg-bg">
         {active === "orders" ? (
           <OwnerOrders />
+        ) : active === "dinein" ? (
+          <OwnerDinein />
         ) : (
           <ComingSoon label={NAV.find((n) => n.key === active)?.label ?? ""} />
         )}
