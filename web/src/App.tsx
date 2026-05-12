@@ -9,6 +9,7 @@ import Login from "@/screens/Login";
 import Onboarding from "@/screens/Onboarding";
 import OwnerDashboard from "@/screens/owner/OwnerDashboard";
 import StaffManagement from "@/screens/owner/StaffManagement";
+import ManagerDashboard from "@/screens/manager/ManagerDashboard";
 
 const ROLE_HOME: Record<Role, string> = {
   owner: "/owner",
@@ -104,7 +105,7 @@ export default function App() {
         path="/manager/*"
         element={
           <RequireAuth>
-            <Placeholder name="Manager Dashboard" />
+            <ManagerDashboard />
           </RequireAuth>
         }
       />
