@@ -1,10 +1,18 @@
-import { useEffect } from "react";
-import { Routes, Route } from "react-router-dom";
-import { useSession } from "@/store/session";
+import { useEffect, type ReactNode } from "react";
+import { Navigate, Routes, Route } from "react-router-dom";
+import { useSession, type Role } from "@/store/session";
 import { storage } from "@/lib/storage";
 import { setSessionExpiredHandler } from "@/lib/api";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
 import type { User } from "@/store/session";
+import Login from "@/screens/Login";
+
+const ROLE_HOME: Record<Role, string> = {
+  owner: "/owner",
+  manager: "/manager",
+  waiter: "/waiter",
+  kitchen: "/kitchen",
+};
 
 function Placeholder({ name }: { name: string }) {
   return (
@@ -20,6 +28,22 @@ function Placeholder({ name }: { name: string }) {
       </div>
     </div>
   );
+}
+
+function RootRedirect() {
+  const user = useSession((s) => s.user);
+  const bootstrapped = useSession((s) => s.bootstrapped);
+  if (!bootstrapped) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  return <Navigate to={ROLE_HOME[user.role]} replace />;
+}
+
+function RequireAuth({ children }: { children: ReactNode }) {
+  const user = useSession((s) => s.user);
+  const bootstrapped = useSession((s) => s.bootstrapped);
+  if (!bootstrapped) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
 }
 
 export default function App() {
@@ -53,13 +77,41 @@ export default function App() {
 
   return (
     <Routes>
-      <Route path="/" element={<Placeholder name="Once Web" />} />
-      <Route path="/login" element={<Placeholder name="Login" />} />
+      <Route path="/" element={<RootRedirect />} />
+      <Route path="/login" element={<Login />} />
       <Route path="/onboarding" element={<Placeholder name="Onboarding" />} />
-      <Route path="/owner/*" element={<Placeholder name="Owner Dashboard" />} />
-      <Route path="/manager/*" element={<Placeholder name="Manager Dashboard" />} />
-      <Route path="/waiter/*" element={<Placeholder name="Waiter Dashboard" />} />
-      <Route path="/kitchen" element={<Placeholder name="Kitchen Display" />} />
+      <Route
+        path="/owner/*"
+        element={
+          <RequireAuth>
+            <Placeholder name="Owner Dashboard" />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/manager/*"
+        element={
+          <RequireAuth>
+            <Placeholder name="Manager Dashboard" />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/waiter/*"
+        element={
+          <RequireAuth>
+            <Placeholder name="Waiter Dashboard" />
+          </RequireAuth>
+        }
+      />
+      <Route
+        path="/kitchen"
+        element={
+          <RequireAuth>
+            <Placeholder name="Kitchen Display" />
+          </RequireAuth>
+        }
+      />
       <Route path="*" element={<Placeholder name="404" />} />
     </Routes>
   );
