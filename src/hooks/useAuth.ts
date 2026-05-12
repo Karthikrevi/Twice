@@ -22,7 +22,7 @@ const roleHome = (role: User["role"]) => {
     case "waiter":
       return "/(waiter)/";
     case "kitchen":
-      return "/(kitchen)";
+      return "/(kitchen)/";
   }
 };
 

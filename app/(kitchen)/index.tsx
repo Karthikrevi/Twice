@@ -1,1 +1,1 @@
-export { KitchenScreen as default } from "@/screens/KitchenScreen";
+export { default } from "@/screens/kitchen/KitchenScreen";

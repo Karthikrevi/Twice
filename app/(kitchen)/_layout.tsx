@@ -2,7 +2,7 @@ import { Redirect, Stack } from "expo-router";
 import { useSession } from "@/store/session";
 import { useSocketSync } from "@/hooks/useSocketSync";
 
-export default function KitchenDashboard() {
+export default function KitchenLayout() {
   const role = useSession((s) => s.user?.role);
   useSocketSync();
   if (!role) return <Redirect href="/login" />;
