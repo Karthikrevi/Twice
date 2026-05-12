@@ -256,26 +256,57 @@ Manager has a PIN gate on sensitive Finance actions
 
 | Hook | File | Purpose |
 | --- | --- | --- |
-| `useOrders`, `useAdvanceOrderStatus` | `web/src/hooks/useOrders.ts` | Same as native |
-| `useTables` | `web/src/hooks/useTables.ts` | Same as native |
-| `useDailyReport` | `web/src/hooks/useReports.ts` | Same as native |
-| `useSocketSync` | `web/src/hooks/useSocketSync.ts` | Same as native |
+| `useOrders`, `useAdvanceOrderStatus` | `web/src/hooks/useOrders.ts` | GET /orders + optimistic PATCH /orders/:id/status |
+| `useTables` | `web/src/hooks/useTables.ts` | GET /tables |
+| `useDailyReport` | `web/src/hooks/useReports.ts` | GET /reports/daily |
+| `useStaff`, `useCreateStaff`, `useDeleteStaff` | `web/src/hooks/useStaff.ts` | Staff CRUD (GET / POST / DELETE /staff) |
+| `usePlatforms`, `useDisconnectPlatform` | `web/src/hooks/usePlatforms.ts` | GET /platforms + disconnect mutation |
+| `useSocketSync` | `web/src/hooks/useSocketSync.ts` | order:new / order:status → invalidate orders cache |
+| `usePinPrompt` | `web/src/hooks/usePinPrompt.tsx` | Returns { requirePin(action), PinPromptModal }; POST /auth/verify-pin with imperative shake animation on failure |
 | `logout(navigate)` | `web/src/hooks/useAuth.ts` | Disconnect socket → clear storage → signOut → navigate("/login") |
 
-`useLogin` / `useSubmitOnboarding` are inline `useMutation`s in
-`web/src/screens/Login.tsx` and `web/src/screens/Onboarding.tsx`.
+`useLogin` / `useGoogleLogin` / `useSubmitOnboarding` are inline
+`useMutation`s in `web/src/screens/Login.tsx` and
+`web/src/screens/Onboarding.tsx`. Google OAuth on the web uses
+`@react-oauth/google`'s `useGoogleLogin` for both sign-in
+(`POST /auth/google`) and registration (`POST /auth/google/register`),
+wrapped in `<GoogleOAuthProvider>` at `web/src/main.tsx`.
 
 ---
 
 ## Web screens
 
+### Auth + onboarding
 | Screen | File |
 | --- | --- |
-| Login (Welcome back, eye toggle, Keep-me-logged-in, Forgot password modal, success banner, "Register your restaurant" link) | `web/src/screens/Login.tsx` |
-| Onboarding (`/register`) — 5 steps, mirrors native | `web/src/screens/Onboarding.tsx` |
-| Owner dashboard shell (top bar + left sidebar + content slot) | `web/src/screens/owner/OwnerDashboard.tsx` |
-| Owner Orders | `web/src/screens/owner/tabs/OwnerOrders.tsx` |
-| Owner Dine-in | `web/src/screens/owner/tabs/OwnerDinein.tsx` |
+| Login (Welcome back, eye toggle, Keep-me-logged-in, Forgot password modal, success banner, Google sign-in, "Register your restaurant" link) | `web/src/screens/Login.tsx` |
+| Onboarding (`/register`) — 5 steps + Google sign-up on Step 1, mirrors native | `web/src/screens/Onboarding.tsx` |
+
+### Owner
+| Screen | File |
+| --- | --- |
+| Dashboard shell (fixed top bar with 4 stat pills + user menu, fixed left sidebar with 5 nav items, content slot) | `web/src/screens/owner/OwnerDashboard.tsx` |
+| Orders tab (responsive 1/2/3-col card grid, status filter pills, CONFIRM/REJECT/MARK READY/PACK/MARK DELIVERED actions, inline reject reasons dropdown) | `web/src/screens/owner/tabs/OwnerOrders.tsx` |
+| Dine-in tab (split panel: dine-in order cards left, tables grid + sticky open-revenue footer right; clicking an occupied tile scrolls left panel to that order) | `web/src/screens/owner/tabs/OwnerDinein.tsx` |
+| Finance tab shell (date selector + Export PDF + 5 sub-pills) | `web/src/screens/owner/tabs/OwnerFinance.tsx` |
+| Finance — Overview (3 metric cards, by-channel list, till verification, order breakdown pills) | `web/src/screens/owner/tabs/finance/FinanceOverview.tsx` |
+| Finance — Platforms (All summary cards + per-platform deep dive with inline-SVG line chart + 24-hour bar chart + commission history table) | `web/src/screens/owner/tabs/finance/FinancePlatforms.tsx` |
+| Finance — Till (3 payment-method cards with colored left borders, dine-in + takeaway breakdown tables, EOD summary with match/discrepancy, Mark day complete button) | `web/src/screens/owner/tabs/finance/FinanceTill.tsx` |
+| Finance — Settlements (two-panel: settlement history table with Paid/Pending/Overdue status pills + footer totals, Outstanding card on the right) | `web/src/screens/owner/tabs/finance/FinanceSettlements.tsx` |
+| Finance — Servers (3 summary cards, leaderboard with rank badges + sparkline SVGs, expandable per-waiter table-by-table breakdown) | `web/src/screens/owner/tabs/finance/FinanceServers.tsx` |
+| Platforms tab (3 connected-platform cards with green/red left border, Connected/Reconnect/Disconnect actions, Careem/Noon Coming-soon cards, AES-256 note) | `web/src/screens/owner/OwnerPlatforms.tsx` |
+| Settings tab (Restaurant / Owner Account / Staff / Notifications / Danger Zone sectioned cards, custom toggles, Sign out) | `web/src/screens/owner/OwnerSettings.tsx` |
+| Staff Management (standalone `/owner/staff`, filter pills, staff cards with initials avatar + role badge + Edit/Reset/Remove pills, pending invitations footer, Add Staff modal) | `web/src/screens/owner/StaffManagement.tsx` |
+
+### Manager
+| Screen | File |
+| --- | --- |
+| Dashboard shell (same chrome as Owner but only 4 sidebar items: Orders, Dine-in, Finance with amber lock icon, Tables) | `web/src/screens/manager/ManagerDashboard.tsx` |
+| Manager Finance (same shell as OwnerFinance, reuses all 5 finance sub-screens, Export PDF wrapped in PIN prompt) | `web/src/screens/manager/ManagerFinance.tsx` |
+| Manager Tables (two-pane: responsive table grid left + active-order detail panel right, three tile states incl. green "Order ready" border, status-aware action buttons) | `web/src/screens/manager/ManagerTables.tsx` |
+
+Manager Orders and Dine-in reuse `OwnerOrders` / `OwnerDinein`
+directly — no separate manager files.
 
 App routes (`web/src/App.tsx`):
 
@@ -285,8 +316,10 @@ App routes (`web/src/App.tsx`):
 | `/login` | Login screen |
 | `/register` | Onboarding wizard |
 | `/onboarding` | Redirects to `/register` |
+| `/owner/staff` | `<RequireAuth><StaffManagement /></RequireAuth>` (more specific, declared before `/owner/*`) |
 | `/owner/*` | `<RequireAuth><OwnerDashboard /></RequireAuth>` |
-| `/manager/*` `/waiter/*` `/kitchen` | placeholders |
+| `/manager/*` | `<RequireAuth><ManagerDashboard /></RequireAuth>` |
+| `/waiter/*` `/kitchen` | placeholders |
 | `*` | 404 placeholder |
 
 ---
@@ -341,26 +374,25 @@ DB schema (`server/src/db/schema.sql`)
 
 ## What still needs to be built
 
-### Native gaps (smaller)
-- Native `useOnboardingSubmit` already lives at
-  `src/hooks/useOnboardingSubmit.ts` — backend `/setup` is wired.
-- Native onboarding doesn't yet collect a Google OAuth path (web only)
-- Native push notifications for low-stock + order-ready not wired
-  (no `expo-notifications`)
+### Native gaps
+- Native onboarding doesn't yet offer a Google OAuth path (web only)
+- Push notifications for low-stock + order-ready not wired
+  (`expo-notifications` not yet added)
 - TableDetail by-item split UI is still placeholder ("you'll assign
   each item to a guest tab")
 - `@sentry/react-native` is configured in `app.json` plugins but
   `Sentry.init(...)` isn't called anywhere yet
 
 ### Web gaps
-- Owner sub-screens not built on web: Finance shell + 5 sub-screens
-  (Overview / Platforms / Till / Settlements / Servers), Platforms tab,
-  Settings tab, Staff Management
-- Manager, Waiter, Kitchen dashboards not built on web
+- Waiter dashboard not built on web (`/waiter` is a placeholder)
+- Kitchen dashboard not built on web (`/kitchen` is a placeholder)
 - Web table detail not built
 - Web bill printing (`expo-print` is native only; web Print Bill would
   use `window.print()` or a PDF blob)
 - Web push: no real-time toast yet beyond cache invalidation
+- Sub-screen edit actions on Manager Finance (FinanceTill Mark day
+  complete, FinancePlatforms disconnect, etc.) aren't yet PIN-gated;
+  only the shell's Export PDF is
 
 ### Backend gaps (real endpoints still missing, currently mocked client-side)
 - `GET /reports/weekly` (line chart on FinancePlatforms uses mocks)
@@ -368,11 +400,14 @@ DB schema (`server/src/db/schema.sql`)
 - `GET /reports/settlements` (FinanceSettlements uses placeholder rows)
 - `GET /staff/invites` (StaffManagement uses one placeholder invite)
 - Rejection endpoint for orders (CONFIRM works; REJECT closes the sheet)
-- Google OAuth endpoint (`POST /auth/google`) — coming next
+- `kitchen_output` field not yet returned by `GET /auth/me` — the
+  Kitchen screen currently picks mode from a constant
 - Real Talabat / Deliveroo / InstaShop API calls in
-  `platformSync.ts` (currently console.log stubs)
+  `platformSync.ts` (currently console.log stubs). API sandbox testing
+  for Talabat / Delivery Hero, Deliveroo OAuth, InstaShop still pending.
 - Settlement closing job (the table exists but never written to)
 - Audit log read endpoint
+- `Sentry.init(...)` on the Node side isn't called anywhere yet
 
 ### Infrastructure
 - No CI yet (eas.json has build profiles, GitHub Actions not wired)
@@ -381,6 +416,9 @@ DB schema (`server/src/db/schema.sql`)
   `withRestaurant()` transactional helper exists in
   `server/src/db/pool.ts` but is not yet used by routes — replace
   with Postgres RLS or enforce the helper before production
+- Google Cloud deployment outstanding — Cloud SQL (Postgres),
+  Memorystore (Redis), Cloud Run (backend), Firebase Hosting (web).
+  No infrastructure-as-code defined yet.
 
 ---
 
