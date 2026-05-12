@@ -56,6 +56,29 @@ authRouter.get("/me", requireAuth, async (req, res) => {
   });
 });
 
+const pinSchema = z.object({ pin: z.string().regex(/^\d{4}$/) });
+
+authRouter.post("/verify-pin", requireAuth, async (req, res) => {
+  const parsed = pinSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "bad_input" });
+
+  const r = await query(
+    `SELECT owner_pin_hash FROM restaurants WHERE id=$1 LIMIT 1`,
+    [req.auth!.rid]
+  );
+  if (!r.rowCount) return res.status(404).json({ error: "not_found" });
+
+  const hash = r.rows[0].owner_pin_hash as string | null;
+  // TODO: require owner to set a PIN during setup; while not yet
+  // configured we treat any 4-digit PIN as valid so the manager flow
+  // can be demoed end-to-end.
+  if (!hash) return res.json({ ok: true });
+
+  const ok = await bcrypt.compare(parsed.data.pin, hash);
+  if (!ok) return res.status(401).json({ error: "invalid_pin" });
+  res.json({ ok: true });
+});
+
 authRouter.post("/refresh", (req, res) => {
   const token = req.body?.refreshToken as string | undefined;
   if (!token) return res.status(400).json({ error: "missing_token" });

@@ -18,7 +18,7 @@ const roleHome = (role: User["role"]) => {
     case "owner":
       return "/(owner)/";
     case "manager":
-      return "/(manager)/orders";
+      return "/(manager)/";
     case "waiter":
       return "/(waiter)/tables";
     case "kitchen":

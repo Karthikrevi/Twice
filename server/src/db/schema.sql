@@ -9,8 +9,10 @@ CREATE TABLE IF NOT EXISTS restaurants (
   kitchen_output  text NOT NULL CHECK (kitchen_output IN ('screen','printer')),
   table_count     int  NOT NULL DEFAULT 0,
   setup_complete  boolean NOT NULL DEFAULT false,
+  owner_pin_hash  text,
   created_at      timestamptz NOT NULL DEFAULT now()
 );
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS owner_pin_hash text;
 
 CREATE TABLE IF NOT EXISTS roles (
   id    serial PRIMARY KEY,
