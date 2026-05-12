@@ -36,7 +36,7 @@
       "apiUrl": "http://localhost:4000",
       "socketUrl": "http://localhost:4000",
       "eas": {
-        "projectId": "00000000-0000-0000-0000-000000000000"
+        "projectId": "ad18018c-6182-4497-8684-4a0b6ecaed94"
       }
     }
   }
