@@ -6,6 +6,7 @@ import { setSessionExpiredHandler } from "@/lib/api";
 import { connectSocket, disconnectSocket } from "@/lib/socket";
 import type { User } from "@/store/session";
 import Login from "@/screens/Login";
+import OwnerDashboard from "@/screens/owner/OwnerDashboard";
 
 const ROLE_HOME: Record<Role, string> = {
   owner: "/owner",
@@ -84,7 +85,7 @@ export default function App() {
         path="/owner/*"
         element={
           <RequireAuth>
-            <Placeholder name="Owner Dashboard" />
+            <OwnerDashboard />
           </RequireAuth>
         }
       />
