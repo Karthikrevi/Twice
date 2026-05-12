@@ -10,6 +10,8 @@ import Onboarding from "@/screens/Onboarding";
 import OwnerDashboard from "@/screens/owner/OwnerDashboard";
 import StaffManagement from "@/screens/owner/StaffManagement";
 import ManagerDashboard from "@/screens/manager/ManagerDashboard";
+import WaiterDashboard from "@/screens/waiter/WaiterDashboard";
+import KitchenDashboard from "@/screens/kitchen/KitchenDashboard";
 
 const ROLE_HOME: Record<Role, string> = {
   owner: "/owner",
@@ -113,7 +115,7 @@ export default function App() {
         path="/waiter/*"
         element={
           <RequireAuth>
-            <Placeholder name="Waiter Dashboard" />
+            <WaiterDashboard />
           </RequireAuth>
         }
       />
@@ -121,7 +123,7 @@ export default function App() {
         path="/kitchen"
         element={
           <RequireAuth>
-            <Placeholder name="Kitchen Display" />
+            <KitchenDashboard />
           </RequireAuth>
         }
       />

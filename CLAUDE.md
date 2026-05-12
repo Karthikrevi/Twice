@@ -164,8 +164,8 @@ same separation on web. There is no shared bottom tab shell.
 | --- | --- | --- | --- |
 | Owner | `app/(owner)/` | `src/screens/owner/OwnerDashboard.tsx` | `/owner` |
 | Manager | `app/(manager)/` | `src/screens/manager/ManagerDashboard.tsx` | `/manager` (not built) |
-| Waiter | `app/(waiter)/` | `src/screens/waiter/WaiterDashboard.tsx` | `/waiter` (not built) |
-| Kitchen | `app/(kitchen)/` | `src/screens/kitchen/KitchenScreen.tsx` | `/kitchen` (not built) |
+| Waiter | `app/(waiter)/` | `src/screens/waiter/WaiterDashboard.tsx` | `/waiter` |
+| Kitchen | `app/(kitchen)/` | `src/screens/kitchen/KitchenScreen.tsx` | `/kitchen` |
 
 `RoleGate` (`src/components/RoleGate.tsx`) wraps sensitive UI:
 - **Revenue totals**: gated to `["owner","manager","kitchen"]` —
@@ -257,7 +257,7 @@ Manager has a PIN gate on sensitive Finance actions
 | Hook | File | Purpose |
 | --- | --- | --- |
 | `useOrders`, `useAdvanceOrderStatus` | `web/src/hooks/useOrders.ts` | GET /orders + optimistic PATCH /orders/:id/status |
-| `useTables` | `web/src/hooks/useTables.ts` | GET /tables |
+| `useTables`, `useOpenTable` | `web/src/hooks/useTables.ts` | GET /tables + POST /tables/:id/open |
 | `useDailyReport` | `web/src/hooks/useReports.ts` | GET /reports/daily |
 | `useStaff`, `useCreateStaff`, `useDeleteStaff` | `web/src/hooks/useStaff.ts` | Staff CRUD (GET / POST / DELETE /staff) |
 | `usePlatforms`, `useDisconnectPlatform` | `web/src/hooks/usePlatforms.ts` | GET /platforms + disconnect mutation |
@@ -308,6 +308,16 @@ wrapped in `<GoogleOAuthProvider>` at `web/src/main.tsx`.
 Manager Orders and Dine-in reuse `OwnerOrders` / `OwnerDinein`
 directly — no separate manager files.
 
+### Waiter
+| Screen | File |
+| --- | --- |
+| Waiter dashboard — slim top bar with O N C E + waiter name + Sign out, two tab pills (Tables / Orders), Tables grid with available / occupied / pulsing "Order Ready" tiles, OpenTable modal (counter + amber CTA, wired to useOpenTable), right-side slide-in detail panel for occupied tiles with MARK DELIVERED when ready, Orders view filtered to dine-in for occupied tables | `web/src/screens/waiter/WaiterDashboard.tsx` |
+
+### Kitchen
+| Screen | File |
+| --- | --- |
+| Kitchen display — full-screen, no sidebar; top bar with "Once — Kitchen" wordmark + ticking HH:MM clock; horizontal scroll strip of 256px ticket cards (platform pill, dine-in guest count, items with platform-colored quantities at text-xl, italic notes, time-elapsed in white/amber/red, blue PREPARING + green READY action buttons by status); diagonal DONE stamp overlay that fades after 30 s; printer-mode fallback screen | `web/src/screens/kitchen/KitchenDashboard.tsx` |
+
 App routes (`web/src/App.tsx`):
 
 | Path | Behaviour |
@@ -319,7 +329,8 @@ App routes (`web/src/App.tsx`):
 | `/owner/staff` | `<RequireAuth><StaffManagement /></RequireAuth>` (more specific, declared before `/owner/*`) |
 | `/owner/*` | `<RequireAuth><OwnerDashboard /></RequireAuth>` |
 | `/manager/*` | `<RequireAuth><ManagerDashboard /></RequireAuth>` |
-| `/waiter/*` `/kitchen` | placeholders |
+| `/waiter/*` | `<RequireAuth><WaiterDashboard /></RequireAuth>` |
+| `/kitchen` | `<RequireAuth><KitchenDashboard /></RequireAuth>` |
 | `*` | 404 placeholder |
 
 ---
@@ -384,15 +395,16 @@ DB schema (`server/src/db/schema.sql`)
   `Sentry.init(...)` isn't called anywhere yet
 
 ### Web gaps
-- Waiter dashboard not built on web (`/waiter` is a placeholder)
-- Kitchen dashboard not built on web (`/kitchen` is a placeholder)
-- Web table detail not built
+- Web table detail not built (native has it at `app/table/[id].tsx`)
 - Web bill printing (`expo-print` is native only; web Print Bill would
   use `window.print()` or a PDF blob)
 - Web push: no real-time toast yet beyond cache invalidation
 - Sub-screen edit actions on Manager Finance (FinanceTill Mark day
   complete, FinancePlatforms disconnect, etc.) aren't yet PIN-gated;
   only the shell's Export PDF is
+- Kitchen mode (screen vs printer) is hard-coded in
+  `web/src/screens/kitchen/KitchenDashboard.tsx` until `GET /auth/me`
+  exposes `kitchen_output`
 
 ### Backend gaps (real endpoints still missing, currently mocked client-side)
 - `GET /reports/weekly` (line chart on FinancePlatforms uses mocks)
