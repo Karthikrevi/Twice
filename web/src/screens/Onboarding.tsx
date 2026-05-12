@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useMutation } from "@tanstack/react-query";
+import { useGoogleLogin } from "@react-oauth/google";
 import axios from "axios";
 import { api } from "@/lib/api";
 import { storage } from "@/lib/storage";
@@ -29,7 +30,9 @@ interface WizardState {
   restaurantName: string;
   location: string;
   ownerEmail: string;
+  ownerName: string;
   ownerPassword: string;
+  googleId: string | null;
   tableCount: number;
   kitchenOutput: KitchenOutput;
   menu: MenuDraft[];
@@ -42,7 +45,9 @@ const INITIAL: WizardState = {
   restaurantName: "",
   location: "",
   ownerEmail: "",
+  ownerName: "",
   ownerPassword: "",
+  googleId: null,
   tableCount: 8,
   kitchenOutput: "screen",
   menu: [],
@@ -70,9 +75,14 @@ export default function Onboarding() {
           tableCount: payload.tableCount,
         },
         owner: {
-          name: payload.ownerEmail.split("@")[0] || "Owner",
+          name:
+            payload.ownerName.trim() ||
+            payload.ownerEmail.split("@")[0] ||
+            "Owner",
           email: payload.ownerEmail.trim(),
-          password: payload.ownerPassword,
+          ...(payload.googleId
+            ? { googleId: payload.googleId }
+            : { password: payload.ownerPassword }),
         },
         menu: payload.menu.map((m) => ({
           name: m.name,
@@ -109,12 +119,55 @@ export default function Onboarding() {
   const next = () => setStep((s) => (Math.min(s + 1, TOTAL_STEPS - 1) as Step));
   const prev = () => setStep((s) => (Math.max(s - 1, 0) as Step));
 
+  // Google sign-up — verifies the Google access token, ensures the email
+  // isn't already used, returns the profile data which we stash in the
+  // wizard state so /setup later carries the googleId instead of a
+  // password.
+  const googleRegister = useMutation({
+    mutationFn: async (access_token: string) => {
+      const { data } = await api.post<{
+        email: string;
+        name: string;
+        googleId: string;
+      }>("/auth/google/register", { access_token });
+      return data;
+    },
+    onSuccess: (data) => {
+      setState((s) => ({
+        ...s,
+        ownerEmail: data.email,
+        ownerName: data.name,
+        ownerPassword: "",
+        googleId: data.googleId,
+      }));
+    },
+  });
+
+  const googleLogin = useGoogleLogin({
+    onSuccess: (tokenResponse) => {
+      googleRegister.reset();
+      googleRegister.mutate(tokenResponse.access_token);
+    },
+    onError: () => {
+      // user cancelled / popup blocked — silent
+    },
+  });
+
+  const googleErrorMessage = googleRegister.isError
+    ? axios.isAxiosError(googleRegister.error) &&
+      googleRegister.error.response?.status === 409
+      ? (googleRegister.error.response.data as { message?: string } | undefined)
+          ?.message ??
+        "An account with this email already exists. Sign in instead."
+      : "We couldn't connect that Google account. Try again."
+    : undefined;
+
   // ---------- validation ----------
   const step1Valid =
     state.restaurantName.trim().length >= 2 &&
     state.location.trim().length >= 2 &&
     /\S+@\S+\.\S+/.test(state.ownerEmail) &&
-    state.ownerPassword.length >= 6;
+    (!!state.googleId || state.ownerPassword.length >= 6);
   const step3Valid = state.menu.length > 0;
 
   const onFinish = () => {
@@ -168,6 +221,12 @@ export default function Onboarding() {
             setField={setField}
             onNext={next}
             canContinue={step1Valid}
+            onGoogleClick={() => {
+              googleRegister.reset();
+              googleLogin();
+            }}
+            googleLoading={googleRegister.isPending}
+            googleErrorMessage={googleErrorMessage}
           />
         )}
         {step === 1 && (
@@ -193,6 +252,16 @@ export default function Onboarding() {
             errorMessage={errorMessage}
           />
         )}
+
+        <p className="text-center text-text-secondary text-xs mt-8">
+          Already have an account?{" "}
+          <Link
+            to="/login"
+            className="text-amber font-medium hover:opacity-80 transition-opacity"
+          >
+            Sign in
+          </Link>
+        </p>
       </div>
     </div>
   );
@@ -293,6 +362,29 @@ function SkipButton({ label, onClick }: { label: string; onClick: () => void }) 
   );
 }
 
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.45c-.28 1.45-1.12 2.68-2.39 3.51v2.92h3.86c2.26-2.08 3.57-5.15 3.57-8.67z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.95-1.07 7.93-2.91l-3.86-2.92c-1.07.72-2.44 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.12C3.26 21.3 7.31 24 12 24z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.27 14.37A7.187 7.187 0 0 1 4.87 12c0-.82.14-1.62.4-2.37V6.51H1.29A11.98 11.98 0 0 0 0 12c0 1.94.47 3.77 1.29 5.39l3.98-3.02z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.74c1.77 0 3.35.61 4.6 1.81l3.42-3.42C17.95 1.18 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.61l3.98 3.02C6.22 6.85 8.87 4.74 12 4.74z"
+      />
+    </svg>
+  );
+}
+
 function Spinner() {
   return (
     <svg
@@ -339,18 +431,66 @@ function Step1Account({
   setField,
   onNext,
   canContinue,
-}: StepProps & { onNext: () => void; canContinue: boolean }) {
+  onGoogleClick,
+  googleLoading,
+  googleErrorMessage,
+}: StepProps & {
+  onNext: () => void;
+  canContinue: boolean;
+  onGoogleClick: () => void;
+  googleLoading: boolean;
+  googleErrorMessage?: string;
+}) {
   const [showPw, setShowPw] = useState(false);
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (canContinue) onNext();
   };
+  const googleConnected = !!state.googleId;
+
   return (
     <form onSubmit={submit} noValidate>
       <Heading
         title="Create your restaurant."
         subtitle="This will be your owner account."
       />
+
+      {/* Google sign-up */}
+      <button
+        type="button"
+        onClick={onGoogleClick}
+        disabled={googleLoading || googleConnected}
+        className="w-full h-[52px] bg-surface border border-border rounded-xl flex items-center justify-center gap-3 hover:border-amber/50 transition-colors cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+      >
+        {googleLoading ? <Spinner /> : <GoogleIcon />}
+        <span className="text-text-primary font-semibold text-sm">
+          {googleConnected
+            ? "Connected with Google"
+            : googleLoading
+            ? "Connecting…"
+            : "Sign up with Google"}
+        </span>
+      </button>
+
+      {googleErrorMessage ? (
+        <p className="text-status-urgent text-xs mt-2">{googleErrorMessage}</p>
+      ) : null}
+
+      {/* Divider */}
+      <div className="flex items-center gap-3 my-5">
+        <span className="flex-1 h-px bg-border" />
+        <span className="text-text-muted text-xs uppercase tracking-widest">or</span>
+        <span className="flex-1 h-px bg-border" />
+      </div>
+
+      {googleConnected ? (
+        <div className="rounded-xl border border-status-available/40 bg-status-available/10 px-4 py-3 mb-4">
+          <p className="text-status-available text-sm font-medium">
+            Google account connected — {state.ownerEmail}
+          </p>
+        </div>
+      ) : null}
+
       <div className="flex flex-col gap-4">
         <TextField
           label="Restaurant name"
@@ -365,36 +505,40 @@ function Step1Account({
           onChange={(v) => setField("location", v)}
           placeholder="Jumeirah, Dubai"
         />
-        <TextField
-          label="Owner email"
-          value={state.ownerEmail}
-          onChange={(v) => setField("ownerEmail", v)}
-          placeholder="owner@restaurant.ae"
-          type="email"
-          autoCapitalize="none"
-        />
-        <label className="block">
-          <Label>Password</Label>
-          <div className="relative">
-            <input
-              type={showPw ? "text" : "password"}
-              value={state.ownerPassword}
-              onChange={(e) => setField("ownerPassword", e.target.value)}
-              placeholder="At least 6 characters"
+        {googleConnected ? null : (
+          <>
+            <TextField
+              label="Owner email"
+              value={state.ownerEmail}
+              onChange={(v) => setField("ownerEmail", v)}
+              placeholder="owner@restaurant.ae"
+              type="email"
               autoCapitalize="none"
-              className="w-full h-[52px] bg-surface border border-border rounded-xl pl-4 pr-12 text-text-primary text-sm placeholder-text-muted focus:border-amber focus:outline-none transition-colors"
             />
-            <button
-              type="button"
-              tabIndex={-1}
-              onClick={() => setShowPw((v) => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1 transition-colors"
-              aria-label={showPw ? "Hide password" : "Show password"}
-            >
-              <EyeIcon open={!showPw} />
-            </button>
-          </div>
-        </label>
+            <label className="block">
+              <Label>Password</Label>
+              <div className="relative">
+                <input
+                  type={showPw ? "text" : "password"}
+                  value={state.ownerPassword}
+                  onChange={(e) => setField("ownerPassword", e.target.value)}
+                  placeholder="At least 6 characters"
+                  autoCapitalize="none"
+                  className="w-full h-[52px] bg-surface border border-border rounded-xl pl-4 pr-12 text-text-primary text-sm placeholder-text-muted focus:border-amber focus:outline-none transition-colors"
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPw((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-text-secondary hover:text-text-primary p-1 transition-colors"
+                  aria-label={showPw ? "Hide password" : "Show password"}
+                >
+                  <EyeIcon open={!showPw} />
+                </button>
+              </div>
+            </label>
+          </>
+        )}
       </div>
       <p className="text-text-muted text-xs mt-2">
         You can change these later in Settings.

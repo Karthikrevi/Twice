@@ -13,11 +13,16 @@ const setupSchema = z.object({
     kitchenOutput: z.enum(["screen", "printer"]),
     tableCount: z.number().int().min(1).max(200),
   }),
-  owner: z.object({
-    name: z.string().min(1),
-    email: z.string().email(),
-    password: z.string().min(6),
-  }),
+  owner: z
+    .object({
+      name: z.string().min(1),
+      email: z.string().email(),
+      password: z.string().min(6).optional(),
+      googleId: z.string().min(1).optional(),
+    })
+    .refine((d) => !!d.password || !!d.googleId, {
+      message: "Either password or googleId is required",
+    }),
   menu: z.array(z.object({ name: z.string(), priceCents: z.number().int().min(0), stock: z.number().int().min(0) })),
   staff: z.array(
     z.object({
@@ -51,10 +56,19 @@ setupRouter.post("/", async (req, res) => {
     );
     const restaurantId = r.rows[0].id;
 
-    const ownerHash = await bcrypt.hash(data.owner.password, 10);
+    const ownerHash = data.owner.password
+      ? await bcrypt.hash(data.owner.password, 10)
+      : null;
     await client.query(
-      `INSERT INTO users (restaurant_id, email, password_hash, name, role) VALUES ($1,$2,$3,$4,'owner')`,
-      [restaurantId, data.owner.email, ownerHash, data.owner.name]
+      `INSERT INTO users (restaurant_id, email, password_hash, name, role, google_id)
+       VALUES ($1,$2,$3,$4,'owner',$5)`,
+      [
+        restaurantId,
+        data.owner.email,
+        ownerHash,
+        data.owner.name,
+        data.owner.googleId ?? null,
+      ]
     );
 
     for (const s of data.staff) {

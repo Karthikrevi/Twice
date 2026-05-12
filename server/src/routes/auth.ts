@@ -129,6 +129,54 @@ authRouter.post("/google", async (req, res) => {
   });
 });
 
+// One-shot Google identity check used during onboarding. Verifies the
+// access token with Google, refuses if the email is already registered,
+// and returns the raw Google profile (email + name + sub) so the wizard
+// can pre-fill it. No JWT is issued — that happens after POST /setup
+// completes with the full restaurant details.
+authRouter.post("/google/register", async (req, res) => {
+  const parsed = googleSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "bad_input" });
+
+  let userinfo: {
+    sub?: string;
+    email?: string;
+    email_verified?: boolean;
+    name?: string;
+  } | null = null;
+  try {
+    const r = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+      headers: { Authorization: `Bearer ${parsed.data.access_token}` },
+    });
+    if (!r.ok) return res.status(401).json({ error: "invalid_google_token" });
+    userinfo = await r.json();
+  } catch {
+    return res.status(502).json({ error: "google_unreachable" });
+  }
+
+  const email = userinfo?.email?.toLowerCase();
+  const googleId = userinfo?.sub;
+  const name = userinfo?.name ?? email?.split("@")[0] ?? "Owner";
+
+  if (!email || !googleId) return res.status(400).json({ error: "no_email" });
+  if (userinfo?.email_verified === false) {
+    return res.status(401).json({ error: "email_not_verified" });
+  }
+
+  const existing = await query(
+    `SELECT id FROM users WHERE email=$1 LIMIT 1`,
+    [email]
+  );
+  if (existing.rowCount) {
+    return res.status(409).json({
+      error: "email_exists",
+      message: "An account with this email already exists. Sign in instead.",
+    });
+  }
+
+  res.json({ email, name, googleId });
+});
+
 authRouter.post("/refresh", (req, res) => {
   const token = req.body?.refreshToken as string | undefined;
   if (!token) return res.status(400).json({ error: "missing_token" });

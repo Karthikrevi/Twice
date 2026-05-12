@@ -25,12 +25,18 @@ CREATE TABLE IF NOT EXISTS users (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   restaurant_id   uuid NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
   email           text NOT NULL,
-  password_hash   text NOT NULL,
+  password_hash   text,
   name            text NOT NULL,
   role            text NOT NULL REFERENCES roles(name),
+  google_id       text,
   created_at      timestamptz NOT NULL DEFAULT now(),
   UNIQUE (restaurant_id, email)
 );
+-- Idempotent migrations for databases created before Google sign-in:
+ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id text;
+CREATE UNIQUE INDEX IF NOT EXISTS users_google_id_unique
+  ON users (google_id) WHERE google_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS users_restaurant_idx ON users(restaurant_id);
 
 CREATE TABLE IF NOT EXISTS staff_invites (
