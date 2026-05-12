@@ -14,7 +14,7 @@ export default function Index() {
     case "manager":
       return <Redirect href={"/(manager)/" as any} />;
     case "waiter":
-      return <Redirect href={"/(waiter)/tables" as any} />;
+      return <Redirect href={"/(waiter)/" as any} />;
     case "kitchen":
       return <Redirect href={"/(kitchen)" as any} />;
   }

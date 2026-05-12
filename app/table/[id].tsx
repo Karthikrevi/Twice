@@ -7,6 +7,8 @@ import { Card } from "@/components/ui/Card";
 import { ErrorState, EmptyState, ListSkeleton } from "@/components/ui/States";
 import { useTables, useTableSession, useAddSessionItem, useCloseSession, useOpenTable } from "@/hooks/useTables";
 import { useMenu } from "@/hooks/useMenu";
+import { useOrders, useAdvanceOrderStatus } from "@/hooks/useOrders";
+import { nextStatus } from "@/data/mock";
 import type { MenuItem } from "@/types";
 
 export default function TableDetail() {
@@ -19,6 +21,15 @@ export default function TableDetail() {
   const openTable = useOpenTable();
   const addItem = useAddSessionItem();
   const closeSession = useCloseSession();
+  const orders = useOrders();
+  const advance = useAdvanceOrderStatus();
+
+  const readyOrder = useMemo(() => {
+    if (!table) return undefined;
+    return (orders.data ?? []).find(
+      (o) => o.tableId === table.id && o.status === "ready"
+    );
+  }, [orders.data, table?.id]);
 
   const [guests, setGuests] = useState<number>(table?.guests || 2);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -99,6 +110,74 @@ export default function TableDetail() {
           {occ ? `Open since ${table.openedAt ? new Date(table.openedAt).toLocaleTimeString() : "now"}` : "Tap below to open this table"}
         </Text>
       </View>
+
+      {readyOrder ? (
+        <View className="px-5 mb-3">
+          <View
+            style={{
+              backgroundColor: "#22C55E22",
+              borderWidth: 2,
+              borderColor: "#22C55E",
+              borderRadius: 16,
+              padding: 16,
+            }}
+          >
+            <Text
+              style={{
+                color: "#22C55E",
+                fontFamily: "Inter_700Bold",
+                fontSize: 18,
+                letterSpacing: -0.3,
+              }}
+            >
+              Order Ready
+            </Text>
+            <View style={{ marginTop: 8 }}>
+              {readyOrder.items.map((it) => (
+                <Text
+                  key={it.id}
+                  style={{
+                    color: "#F1F3F7",
+                    fontFamily: "Inter_500Medium",
+                    fontSize: 15,
+                    marginBottom: 2,
+                  }}
+                >
+                  {it.qty}× {it.name}
+                </Text>
+              ))}
+            </View>
+            <Text
+              style={{
+                color: "#8B90A0",
+                fontFamily: "Inter_400Regular",
+                fontSize: 12,
+                marginTop: 6,
+              }}
+            >
+              Ready since {Math.max(0, Math.floor((Date.now() - new Date(readyOrder.placedAt).getTime()) / 60_000))} mins ago
+            </Text>
+            <TouchableOpacity
+              onPress={() =>
+                advance.mutate({ id: readyOrder.id, status: nextStatus(readyOrder.status) })
+              }
+              activeOpacity={0.85}
+              style={{
+                marginTop: 14,
+                height: 52,
+                borderRadius: 12,
+                backgroundColor: "#22C55E",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ color: "#000", fontFamily: "Inter_700Bold", fontSize: 15 }}>
+                Mark Delivered
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      ) : null}
 
       <View className="px-5">
         <Card>
