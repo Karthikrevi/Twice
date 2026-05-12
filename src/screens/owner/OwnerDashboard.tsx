@@ -8,9 +8,7 @@ import { OwnerOrders } from "@/screens/owner/tabs/OwnerOrders";
 import { OwnerDinein } from "@/screens/owner/tabs/OwnerDinein";
 import { OwnerFinance } from "@/screens/owner/tabs/OwnerFinance";
 import { OwnerPlatforms } from "@/screens/owner/OwnerPlatforms";
-// TODO: dedicated owner Settings screen not built yet — reuse the shared
-// SettingsScreen for the Settings tab until then.
-import { SettingsScreen } from "@/screens/SettingsScreen";
+import { OwnerSettings } from "@/screens/owner/OwnerSettings";
 import { RoleGate } from "@/components/RoleGate";
 
 const BG = "#0D0F14";
@@ -188,8 +186,7 @@ export function OwnerDashboard() {
         ) : activeTab === "platforms" ? (
           <OwnerPlatforms />
         ) : (
-          // TODO: replace with dedicated owner Settings screen when built.
-          <SettingsScreen />
+          <OwnerSettings />
         )}
       </View>
     </SafeAreaView>
