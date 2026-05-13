@@ -39,6 +39,7 @@ interface WizardState {
   deliveryHeroToken: string;
   deliverooConnected: boolean;
   staff: StaffDraft[];
+  consent: boolean;
 }
 
 const INITIAL: WizardState = {
@@ -54,6 +55,7 @@ const INITIAL: WizardState = {
   deliveryHeroToken: "",
   deliverooConnected: false,
   staff: [],
+  consent: false,
 };
 
 const TOTAL_STEPS = 5;
@@ -99,6 +101,7 @@ export default function Onboarding() {
           deliveryHeroToken: payload.deliveryHeroToken || undefined,
           deliverooToken: payload.deliverooConnected ? "deliveroo-oauth-pending" : undefined,
         },
+        consent: payload.consent,
       };
       const { data } = await api.post<{ restaurantId: string }>("/setup", body);
       return data;
@@ -167,7 +170,8 @@ export default function Onboarding() {
     state.restaurantName.trim().length >= 2 &&
     state.location.trim().length >= 2 &&
     /\S+@\S+\.\S+/.test(state.ownerEmail) &&
-    (!!state.googleId || state.ownerPassword.length >= 6);
+    (!!state.googleId || state.ownerPassword.length >= 6) &&
+    state.consent;
   const step3Valid = state.menu.length > 0;
 
   const onFinish = () => {
@@ -543,6 +547,38 @@ function Step1Account({
       <p className="text-text-muted text-xs mt-2">
         You can change these later in Settings.
       </p>
+
+      <label className="flex items-start gap-3 mt-5 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={state.consent}
+          onChange={(e) => setField("consent", e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-border bg-surface accent-amber cursor-pointer"
+        />
+        <span className="text-text-secondary text-xs leading-relaxed">
+          I agree to the Once{" "}
+          <a
+            href="/terms"
+            target="_blank"
+            rel="noreferrer"
+            className="text-amber hover:underline"
+          >
+            Terms of Service
+          </a>{" "}
+          and{" "}
+          <a
+            href="/privacy"
+            target="_blank"
+            rel="noreferrer"
+            className="text-amber hover:underline"
+          >
+            Privacy Policy
+          </a>
+          . I consent to Once processing the data described in the policy under
+          UAE PDPL.
+        </span>
+      </label>
+
       <div className="mt-8">
         <PrimaryButton type="submit" label="Continue" disabled={!canContinue} />
       </div>

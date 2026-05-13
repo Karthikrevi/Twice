@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useSession } from "@/store/session";
 import { useStaff } from "@/hooks/useStaff";
 import { logout } from "@/hooks/useAuth";
+import DataPrivacy from "@/screens/owner/settings/DataPrivacy";
 
 interface NotificationsState {
   newOrders: boolean;
@@ -40,11 +41,6 @@ export default function OwnerSettings() {
     }
   };
 
-  const onDeleteAccount = () => {
-    if (window.confirm("Delete restaurant account? This cannot be undone.")) {
-      // TODO: server delete endpoint
-    }
-  };
 
   return (
     <div className="px-6 py-5 max-w-3xl">
@@ -167,6 +163,9 @@ export default function OwnerSettings() {
         </Row>
       </Card>
 
+      {/* DATA & PRIVACY (UAE PDPL) */}
+      <DataPrivacy />
+
       {/* DANGER ZONE */}
       <SectionLabel>Danger zone</SectionLabel>
       <div
@@ -180,14 +179,6 @@ export default function OwnerSettings() {
           sub="This will not delete your data"
         >
           <DangerPill label="Reset" onClick={onResetSetup} />
-        </Row>
-        <div style={{ height: 1, backgroundColor: "#EF444433" }} />
-        <Row
-          icon={<IconTrash />}
-          iconColor="#EF4444"
-          label="Delete restaurant account"
-        >
-          <DangerPill label="Delete" onClick={onDeleteAccount} />
         </Row>
       </div>
 
@@ -462,16 +453,6 @@ function IconReset() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="1 4 1 10 7 10" />
       <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-    </svg>
-  );
-}
-function IconTrash() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6" />
-      <line x1="10" y1="11" x2="10" y2="17" />
-      <line x1="14" y1="11" x2="14" y2="17" />
     </svg>
   );
 }

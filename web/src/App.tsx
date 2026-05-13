@@ -12,6 +12,9 @@ import StaffManagement from "@/screens/owner/StaffManagement";
 import ManagerDashboard from "@/screens/manager/ManagerDashboard";
 import WaiterDashboard from "@/screens/waiter/WaiterDashboard";
 import KitchenDashboard from "@/screens/kitchen/KitchenDashboard";
+import PrivacyPolicy from "@/screens/legal/PrivacyPolicy";
+import Terms from "@/screens/legal/Terms";
+import CookieBanner from "@/components/CookieBanner";
 
 const ROLE_HOME: Record<Role, string> = {
   owner: "/owner",
@@ -82,11 +85,14 @@ export default function App() {
   }, []);
 
   return (
+    <>
     <Routes>
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Onboarding />} />
       <Route path="/onboarding" element={<Navigate to="/register" replace />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
+      <Route path="/terms" element={<Terms />} />
       <Route
         path="/owner/staff"
         element={
@@ -129,5 +135,7 @@ export default function App() {
       />
       <Route path="*" element={<Placeholder name="404" />} />
     </Routes>
+    <CookieBanner />
+    </>
   );
 }

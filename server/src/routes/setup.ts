@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { pool, query } from "../db/pool";
 import { encrypt } from "../lib/crypto";
+import { PRIVACY_POLICY_VERSION } from "./privacy";
 
 export const setupRouter = Router();
 
@@ -23,6 +24,7 @@ const setupSchema = z.object({
     .refine((d) => !!d.password || !!d.googleId, {
       message: "Either password or googleId is required",
     }),
+  consent: z.boolean().optional(),
   menu: z.array(z.object({ name: z.string(), priceCents: z.number().int().min(0), stock: z.number().int().min(0) })),
   staff: z.array(
     z.object({
@@ -60,15 +62,27 @@ setupRouter.post("/", async (req, res) => {
       ? await bcrypt.hash(data.owner.password, 10)
       : null;
     await client.query(
-      `INSERT INTO users (restaurant_id, email, password_hash, name, role, google_id)
-       VALUES ($1,$2,$3,$4,'owner',$5)`,
+      `INSERT INTO users
+         (restaurant_id, email, password_hash, name, role, google_id,
+          consent_given, consent_date, consent_version)
+       VALUES ($1,$2,$3,$4,'owner',$5,$6,$7,$8)`,
       [
         restaurantId,
         data.owner.email,
         ownerHash,
         data.owner.name,
         data.owner.googleId ?? null,
+        !!data.consent,
+        data.consent ? new Date() : null,
+        data.consent ? PRIVACY_POLICY_VERSION : null,
       ]
+    );
+
+    // Default retention policy for the new restaurant.
+    await client.query(
+      `INSERT INTO data_retention_config (restaurant_id) VALUES ($1)
+       ON CONFLICT (restaurant_id) DO NOTHING`,
+      [restaurantId]
     );
 
     for (const s of data.staff) {

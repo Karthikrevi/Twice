@@ -262,6 +262,15 @@ export default function Login() {
         <p className="text-text-muted text-xs text-center mt-4">
           Trouble signing in? Contact your restaurant owner.
         </p>
+        <p className="text-text-muted text-xs text-center mt-4">
+          <Link to="/privacy" className="hover:text-text-secondary transition-colors">
+            Privacy Policy
+          </Link>
+          <span className="mx-2">·</span>
+          <Link to="/terms" className="hover:text-text-secondary transition-colors">
+            Terms
+          </Link>
+        </p>
       </form>
 
       {forgotOpen ? (

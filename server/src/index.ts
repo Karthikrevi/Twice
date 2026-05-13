@@ -13,8 +13,9 @@ import { reportsRouter } from "./routes/reports";
 import { staffRouter } from "./routes/staff";
 import { platformsRouter } from "./routes/platforms";
 import { webhooksRouter } from "./routes/webhooks";
+import { privacyRouter } from "./routes/privacy";
 import { initSocket } from "./realtime/io";
-import { startWorkers } from "./queues";
+import { startWorkers, scheduleRecurringJobs } from "./queues";
 
 if (env.sentryDsn) {
   Sentry.init({ dsn: env.sentryDsn, tracesSampleRate: 0.1 });
@@ -46,6 +47,7 @@ app.use("/tables", tablesRouter);
 app.use("/reports", reportsRouter);
 app.use("/staff", staffRouter);
 app.use("/platforms", platformsRouter);
+app.use("/privacy", privacyRouter);
 app.use(
   "/webhooks",
   rateLimit({ windowMs: 60_000, max: 600, standardHeaders: true, legacyHeaders: false }),
@@ -60,6 +62,10 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 const server = http.createServer(app);
 initSocket(server);
 startWorkers();
+scheduleRecurringJobs().catch((err) => {
+  Sentry.captureException(err);
+  console.error("[scheduleRecurringJobs]", err);
+});
 
 server.listen(env.port, () => {
   console.log(`Once API listening on :${env.port}`);

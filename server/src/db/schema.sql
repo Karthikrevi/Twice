@@ -10,9 +10,11 @@ CREATE TABLE IF NOT EXISTS restaurants (
   table_count     int  NOT NULL DEFAULT 0,
   setup_complete  boolean NOT NULL DEFAULT false,
   owner_pin_hash  text,
+  deleted_at      timestamptz,
   created_at      timestamptz NOT NULL DEFAULT now()
 );
 ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS owner_pin_hash text;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
 
 CREATE TABLE IF NOT EXISTS roles (
   id    serial PRIMARY KEY,
@@ -29,14 +31,31 @@ CREATE TABLE IF NOT EXISTS users (
   name            text NOT NULL,
   role            text NOT NULL REFERENCES roles(name),
   google_id       text,
+  consent_given   boolean NOT NULL DEFAULT false,
+  consent_date    timestamptz,
+  consent_version varchar(32),
   created_at      timestamptz NOT NULL DEFAULT now(),
   UNIQUE (restaurant_id, email)
 );
--- Idempotent migrations for databases created before Google sign-in:
+-- Idempotent migrations for databases created before Google sign-in /
+-- PDPL consent tracking:
 ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id text;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_given boolean NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_date timestamptz;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS consent_version varchar(32);
 CREATE UNIQUE INDEX IF NOT EXISTS users_google_id_unique
   ON users (google_id) WHERE google_id IS NOT NULL;
+
+-- Retention configuration, one row per restaurant. Defaults derived from
+-- the UAE PDPL guidance (orders 2y, sessions 1y, audit 3y).
+CREATE TABLE IF NOT EXISTS data_retention_config (
+  restaurant_id      uuid PRIMARY KEY REFERENCES restaurants(id) ON DELETE CASCADE,
+  order_days         int NOT NULL DEFAULT 730,
+  session_days       int NOT NULL DEFAULT 365,
+  audit_days         int NOT NULL DEFAULT 1095,
+  updated_at         timestamptz NOT NULL DEFAULT now()
+);
 CREATE INDEX IF NOT EXISTS users_restaurant_idx ON users(restaurant_id);
 
 CREATE TABLE IF NOT EXISTS staff_invites (
