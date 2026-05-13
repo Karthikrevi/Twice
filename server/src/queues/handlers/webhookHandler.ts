@@ -1,6 +1,13 @@
+import * as Sentry from "@sentry/node";
 import { query } from "../../db/pool";
+import { decrypt } from "../../lib/crypto";
 import { emitToRestaurant } from "../../realtime/io";
 import { platformSyncQueue } from "..";
+import { acknowledgeOrder as deliveryHeroAck } from "../../integrations/deliveryHero";
+import {
+  acknowledgeOrder as deliverooAck,
+  type DeliverooCredentials,
+} from "../../integrations/deliveroo";
 
 interface NormalizedOrder {
   restaurantId: string;
@@ -68,4 +75,65 @@ export async function handler(payload: NormalizedOrder) {
   );
 
   emitToRestaurant(payload.restaurantId, "order:new", { id: orderId });
+
+  // Acknowledge receipt to the source platform. Best-effort — failures
+  // are logged via Sentry but don't roll back the order ingest.
+  try {
+    await acknowledgeAtSource(payload);
+  } catch (e) {
+    Sentry.captureException(e, {
+      tags: {
+        kind: "webhook-ack",
+        platform: payload.platform,
+        restaurant_id: payload.restaurantId,
+        order_id: payload.externalId,
+      },
+    });
+  }
+}
+
+async function acknowledgeAtSource(payload: NormalizedOrder): Promise<void> {
+  const r = await query<{
+    encrypted_token: Buffer;
+    iv: Buffer;
+    auth_tag: Buffer;
+  }>(
+    `SELECT encrypted_token, iv, auth_tag
+       FROM platform_credentials
+      WHERE restaurant_id = $1 AND platform = $2 AND status = 'connected'
+      LIMIT 1`,
+    [payload.restaurantId, payload.platform]
+  );
+  const row = r.rows[0];
+  if (!row) return;
+
+  const plaintext = decrypt(row.encrypted_token, row.iv, row.auth_tag);
+
+  if (payload.platform === "talabat" || payload.platform === "instashop") {
+    await deliveryHeroAck(
+      plaintext,
+      payload.externalId,
+      payload.restaurantId,
+      payload.platform
+    );
+    return;
+  }
+
+  if (payload.platform === "deliveroo") {
+    let creds: DeliverooCredentials;
+    try {
+      const parsed = JSON.parse(plaintext) as {
+        accessToken: string;
+        refreshToken: string;
+      };
+      creds = {
+        restaurantId: payload.restaurantId,
+        accessToken: parsed.accessToken,
+        refreshToken: parsed.refreshToken,
+      };
+    } catch {
+      return;
+    }
+    await deliverooAck(creds, payload.externalId);
+  }
 }

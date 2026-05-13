@@ -14,6 +14,8 @@ export const env = {
   jwtRefreshSecret: required("JWT_REFRESH_SECRET", "dev-refresh"),
   encryptionKey: required("ENCRYPTION_KEY", "0".repeat(64)),
   sentryDsn: process.env.SENTRY_DSN ?? "",
+  platformSandbox:
+    (process.env.PLATFORM_SANDBOX ?? "true").toLowerCase() === "true",
   webhookSecrets: {
     talabat: process.env.TALABAT_WEBHOOK_SECRET ?? "dev-talabat",
     deliveroo: process.env.DELIVEROO_WEBHOOK_SECRET ?? "dev-deliveroo",

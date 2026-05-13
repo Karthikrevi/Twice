@@ -1,9 +1,12 @@
-import { Pool } from "pg";
+import { Pool, type QueryResultRow } from "pg";
 import { env } from "../env";
 
 export const pool = new Pool({ connectionString: env.databaseUrl });
 
-export async function query<T = any>(text: string, params: any[] = []) {
+export async function query<T extends QueryResultRow = any>(
+  text: string,
+  params: any[] = []
+) {
   return pool.query<T>(text, params);
 }
 
